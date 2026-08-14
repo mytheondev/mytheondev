@@ -1,0 +1,126 @@
+---
+import { HEATMAP_API_URL } from "../lib/github-heatmap";
+---
+
+<div
+  id="github-heatmap"
+  class="rounded-lg border border-white/10 p-5 md:p-6"
+  data-api={HEATMAP_API_URL}
+>
+  <div class="flex flex-wrap items-end justify-between gap-3">
+    <p class="text-sm text-muted">
+      <span data-heatmap-total>—</span> contributions in the last 6 months
+    </p>
+    <p class="text-sm text-muted">
+      Best streak: <span data-heatmap-streak>—</span>
+    </p>
+  </div>
+
+  <div data-heatmap-grid class="mt-5 overflow-x-auto" aria-label="GitHub contribution heatmap">
+  </div>
+
+  <p data-heatmap-error class="mt-4 hidden text-sm text-brand" role="status"></p>
+
+  <div class="mt-4 flex items-center justify-end gap-1 text-xs text-muted">
+    <span>Less</span>
+    <span class="size-2.5 rounded-sm bg-brand/0 ring-1 ring-white/10"></span>
+    <span class="size-2.5 rounded-sm bg-brand/15"></span>
+    <span class="size-2.5 rounded-sm bg-brand/35"></span>
+    <span class="size-2.5 rounded-sm bg-brand/60"></span>
+    <span class="size-2.5 rounded-sm bg-brand"></span>
+    <span>More</span>
+  </div>
+</div>
+
+<script>
+  import {
+    bestStreak,
+    filterLastSixMonths,
+    HEATMAP_LEVEL_OPACITY,
+    sumContributions,
+    weeksFromDays,
+    type ContributionsResponse,
+  } from "../lib/github-heatmap";
+
+  const root = document.getElementById("github-heatmap");
+  if (root) {
+    const api = root.dataset.api ?? "";
+    const totalEl = root.querySelector("[data-heatmap-total]");
+    const streakEl = root.querySelector("[data-heatmap-streak]");
+    const gridEl = root.querySelector("[data-heatmap-grid]");
+    const errorEl = root.querySelector("[data-heatmap-error]");
+
+    const showError = (message: string) => {
+      if (!(errorEl instanceof HTMLElement)) return;
+      errorEl.textContent = message;
+      errorEl.classList.remove("hidden");
+    };
+
+    const render = (data: ContributionsResponse) => {
+      const recent = filterLastSixMonths(data.contributions);
+      if (recent.length === 0) {
+        showError("No contribution data for the last 6 months.");
+        return;
+      }
+
+      if (totalEl) totalEl.textContent = String(sumContributions(recent));
+      if (streakEl) streakEl.textContent = `${bestStreak(recent)} days`;
+
+      const weeks = weeksFromDays(recent);
+      const grid = document.createElement("div");
+      grid.className = "grid w-max grid-flow-col grid-rows-7 gap-1";
+
+      for (const week of weeks) {
+        for (const day of week) {
+          const cell = document.createElement("span");
+          const level = Math.min(Math.max(day.level, 0), 4);
+          const opacity = HEATMAP_LEVEL_OPACITY[level];
+          cell.className = "size-2.5 rounded-sm ring-1 ring-white/10";
+          cell.style.backgroundColor =
+            day.date === ""
+              ? "transparent"
+              : `color-mix(in oklab, var(--color-brand) ${opacity * 100}%, transparent)`;
+          if (day.date) {
+            cell.title = `${day.date}: ${day.count} contribution${day.count === 1 ? "" : "s"}`;
+          }
+          grid.append(cell);
+        }
+      }
+
+      gridEl?.replaceChildren(grid);
+    };
+
+    const load = async () => {
+      try {
+        const response = await fetch(api);
+        if (!response.ok) {
+          if (response.status === 429) {
+            throw new Error(
+              `Rate limited (HTTP 429). The public contributions API limit may have been reached.`,
+            );
+          }
+          throw new Error(`Could not load contributions (HTTP ${response.status}).`);
+        }
+
+        const data = (await response.json()) as ContributionsResponse;
+        if (!data.contributions?.length) {
+          showError("No contribution data returned.");
+          return;
+        }
+
+        render(data);
+      } catch (error) {
+        if (error instanceof TypeError) {
+          showError(
+            "Request blocked or failed. A public API limit or an ad blocker may be blocking github-contributions-api.jogruber.de.",
+          );
+          return;
+        }
+
+        showError(error instanceof Error ? error.message : "Unknown error loading contributions.");
+      }
+    };
+
+    void load();
+  }
+</script>

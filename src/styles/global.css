@@ -1,0 +1,117 @@
+@import "tailwindcss";
+@import "tw-animations";
+
+@theme {
+  --color-brand: #e0ed34;
+  --color-ink: #ebebeb;
+  --color-muted: #adaeb0;
+  --color-surface: #0b0d10;
+  --color-surface-2: #16181a;
+}
+
+@theme inline {
+  --font-mono:
+    var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  body {
+    @apply min-h-svh bg-linear-to-b from-surface to-surface-2 font-mono text-ink antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+}
+
+.scanlines {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  opacity: 0.3;
+  mix-blend-mode: overlay;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgb(255 255 255 / 0.04) 0px,
+    rgb(255 255 255 / 0.04) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.cursor-blink {
+  display: inline-block;
+  width: 8px;
+  height: 1em;
+  margin-left: 2px;
+  background: var(--color-brand);
+  vertical-align: text-bottom;
+  animation: blink 1s steps(1) infinite;
+}
+
+@keyframes blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.article-body {
+  @apply max-w-3xl text-[15px] leading-7 text-muted;
+}
+
+.article-body h2 {
+  @apply mt-10 mb-3 text-lg font-semibold text-ink;
+}
+
+.article-body p {
+  @apply mb-4;
+}
+
+.article-body ul {
+  @apply mb-4 list-disc space-y-1 pl-5;
+}
+
+.article-body pre {
+  @apply mb-4 overflow-x-auto rounded-lg border border-white/10 bg-surface p-4 text-sm text-ink;
+}
+
+.article-body code {
+  @apply rounded-sm bg-white/5 px-1 py-0.5 text-ink;
+}
+
+.article-body pre code {
+  @apply bg-transparent p-0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-blink {
+    animation: none;
+    opacity: 1;
+  }
+
+  .animate-fade-in-up,
+  .animate-fade-in,
+  .animate-fade-out {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

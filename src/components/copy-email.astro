@@ -1,0 +1,46 @@
+---
+import { SITE_EMAIL } from "../lib/site";
+---
+
+<div class="flex flex-wrap items-center gap-3">
+  <a
+    href={`mailto:${SITE_EMAIL}`}
+    class="text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
+  >
+    {SITE_EMAIL}
+  </a>
+  <button
+    type="button"
+    id="copy-email"
+    data-email={SITE_EMAIL}
+    class="rounded-md border border-white/10 px-3 py-1.5 text-xs text-ink transition-colors hover:border-brand"
+  >
+    Copy
+  </button>
+</div>
+
+<script>
+  const button = document.getElementById("copy-email");
+  if (button instanceof HTMLButtonElement) {
+    const email = button.dataset.email ?? "";
+    const original = button.textContent ?? "Copy";
+
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(email);
+      } catch {
+        const input = document.createElement("input");
+        input.value = email;
+        document.body.append(input);
+        input.select();
+        document.execCommand("copy");
+        input.remove();
+      }
+
+      button.textContent = "copied!";
+      window.setTimeout(() => {
+        button.textContent = original;
+      }, 1800);
+    });
+  }
+</script>

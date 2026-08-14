@@ -1,0 +1,46 @@
+---
+import { NAV_ITEMS } from "../lib/site";
+
+interface Props {
+  home?: boolean;
+}
+
+const { home = false } = Astro.props;
+---
+
+<header
+  class="sticky top-0 z-50 flex items-center gap-3 border-b border-white/10 bg-surface/90 px-3 py-2.5 backdrop-blur-md md:px-4"
+>
+  <div class="flex shrink-0 items-center gap-1.5" aria-hidden="true">
+    <span class="size-2.5 rounded-full bg-white/15"></span>
+    <span class="size-2.5 rounded-full bg-white/15"></span>
+    <span class="size-2.5 rounded-full bg-white/15"></span>
+  </div>
+
+  <p class="min-w-0 flex-1 truncate text-xs text-muted md:text-sm">mytheon@dev — zsh — 120×40</p>
+
+  <nav class="hidden items-center gap-4 lg:flex" aria-label="Primary">
+    {
+      NAV_ITEMS.map((item) => (
+        <a
+          href={home ? `#${item.id}` : `/#${item.id}`}
+          data-nav-link={item.id}
+          class="text-sm text-ink transition-colors hover:text-brand"
+        >
+          {item.label}
+        </a>
+      ))
+    }
+  </nav>
+
+  <button
+    type="button"
+    id="menu-toggle"
+    class="relative z-50 inline-flex size-10 items-center justify-center text-ink lg:hidden"
+    aria-label="Open menu"
+    aria-expanded="false"
+    aria-controls="nav-overlay"
+  >
+    <span data-menu-icon class="text-2xl leading-none">☰</span>
+  </button>
+</header>

@@ -1,0 +1,49 @@
+---
+import type { CollectionEntry } from "astro:content";
+import FormattedDate from "../components/formatted-date.astro";
+import Layout from "./terminal.astro";
+
+type Props = CollectionEntry<"blog">["data"];
+
+const { title, description, pubDate, minutes, tags } = Astro.props;
+const pageTitle = `${title} — Mytheon`;
+---
+
+<Layout title={pageTitle} description={description} type="article">
+  <article>
+    <p class="text-brand">
+      <span aria-hidden="true">➜</span>
+      {" "}~ cat blog/{title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.md
+    </p>
+    <p class="mt-1 text-xs text-muted"># {minutes} min read</p>
+
+    <header class="mt-8">
+      <p class="text-sm text-muted">
+        <FormattedDate date={pubDate} />
+        <span aria-hidden="true"> · </span>
+        {minutes} min
+      </p>
+      <h1 class="mt-3 text-3xl font-bold tracking-tight md:text-4xl">{title}</h1>
+      <ul class="mt-4 flex flex-wrap gap-2">
+        {
+          tags.map((tag) => (
+            <li class="rounded-md border border-white/10 px-2 py-0.5 text-xs text-muted">{tag}</li>
+          ))
+        }
+      </ul>
+    </header>
+
+    <div class="article-body mt-10">
+      <slot />
+    </div>
+
+    <p class="mt-12 border-t border-white/5 pt-6">
+      <a
+        href="/blog/"
+        class="text-sm text-brand underline decoration-brand/40 underline-offset-4 hover:decoration-brand"
+      >
+        ← Back to blog
+      </a>
+    </p>
+  </article>
+</Layout>

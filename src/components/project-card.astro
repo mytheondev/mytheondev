@@ -1,0 +1,30 @@
+---
+import { LANGUAGE_COLORS, type Project } from "../lib/github-projects";
+
+interface Props {
+  project: Project;
+}
+
+const { project } = Astro.props;
+const color = LANGUAGE_COLORS[project.language] ?? "#adaeb0";
+---
+
+<a
+  href={project.url}
+  target="_blank"
+  rel="noopener noreferrer"
+  class="group flex flex-col rounded-lg border border-white/10 p-5 transition-colors hover:border-brand"
+>
+  <div class="flex items-start justify-between gap-3">
+    <h3 class="font-semibold text-ink group-hover:text-brand">{project.name}</h3>
+    <span class="shrink-0 text-sm text-muted">★ {project.stars}</span>
+  </div>
+  <p class="mt-3 flex-1 text-sm leading-relaxed text-muted">
+    {project.description}
+  </p>
+  <p class="mt-4 flex items-center gap-2 text-xs text-muted">
+    <span class="size-2.5 rounded-full" style={`background-color: ${color}`} aria-hidden="true"
+    ></span>
+    {project.language}
+  </p>
+</a>

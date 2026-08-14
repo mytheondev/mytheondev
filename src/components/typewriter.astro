@@ -1,0 +1,39 @@
+---
+interface Props {
+  text: string;
+  as?: "h1" | "p" | "span";
+  class?: string;
+}
+
+const { text, as: Tag = "h1", class: className = "" } = Astro.props;
+---
+
+<Tag class:list={["inline", className]} data-typewriter={text}>
+  <span data-typewriter-text></span><span class="cursor-blink" aria-hidden="true"></span>
+</Tag>
+
+<script>
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const nodes = document.querySelectorAll<HTMLElement>("[data-typewriter]");
+
+  for (const node of nodes) {
+    const full = node.dataset.typewriter ?? "";
+    const target = node.querySelector<HTMLElement>("[data-typewriter-text]");
+    if (!target) continue;
+
+    if (reduceMotion) {
+      target.textContent = full;
+      continue;
+    }
+
+    let index = 0;
+    const tick = () => {
+      target.textContent = full.slice(0, index);
+      index += 1;
+      if (index <= full.length) {
+        window.setTimeout(tick, 55);
+      }
+    };
+    tick();
+  }
+</script>

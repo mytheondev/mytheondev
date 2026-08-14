@@ -1,0 +1,17 @@
+---
+interface Props {
+  command: string;
+  comment: string;
+}
+
+const { command, comment } = Astro.props;
+---
+
+<div class="mb-6">
+  <p class="text-brand">
+    <span aria-hidden="true">➜</span>
+    <span class="sr-only">prompt</span>
+    {" "}{command}
+  </p>
+  <p class="mt-1 text-xs text-muted"># {comment}</p>
+</div>

@@ -1,0 +1,127 @@
+---
+import { NAV_ITEMS } from "../lib/site";
+
+interface Props {
+  home?: boolean;
+}
+
+const { home = false } = Astro.props;
+---
+
+<div
+  id="nav-overlay"
+  class="fixed inset-0 z-40 hidden bg-surface lg:hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Site menu"
+>
+  <!-- tw-animations: animate-fade-in animate-fade-out animate-fade-in-up -->
+  <nav class="flex h-full flex-col items-center justify-center gap-6" aria-label="Mobile">
+    {
+      NAV_ITEMS.map((item, index) => (
+        <a
+          href={home ? `#${item.id}` : `/#${item.id}`}
+          data-overlay-link
+          class:list={[
+            "animate-fade-in-up text-3xl font-bold text-ink hover:text-brand",
+            index === 0 && "animate-delay-50",
+            index === 1 && "animate-delay-100",
+            index === 2 && "animate-delay-150",
+            index === 3 && "animate-delay-200",
+            index === 4 && "animate-delay-250",
+            index === 5 && "animate-delay-300",
+          ]}
+        >
+          {item.command}
+        </a>
+      ))
+    }
+  </nav>
+</div>
+
+<script>
+  const overlay = document.getElementById("nav-overlay");
+  const toggle = document.getElementById("menu-toggle");
+  const icon = toggle?.querySelector<HTMLElement>("[data-menu-icon]");
+  const links = overlay?.querySelectorAll<HTMLAnchorElement>("[data-overlay-link]");
+
+  if (overlay && toggle && icon) {
+    let open = false;
+    let lastFocus: HTMLElement | null = null;
+
+    const focusables = () =>
+      [toggle, ...Array.from(links ?? [])].filter(
+        (el): el is HTMLElement => el instanceof HTMLElement,
+      );
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const setOpen = (next: boolean) => {
+      open = next;
+      document.body.style.overflow = open ? "hidden" : "";
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+      icon.textContent = open ? "×" : "☰";
+
+      if (open) {
+        overlay.classList.remove("hidden", "animate-fade-out");
+        overlay.classList.add("animate-fade-in");
+        links?.forEach((link) => {
+          link.classList.remove("animate-fade-in-up");
+          void link.offsetWidth;
+          link.classList.add("animate-fade-in-up");
+        });
+        lastFocus = document.activeElement as HTMLElement | null;
+        links?.[0]?.focus();
+        return;
+      }
+
+      overlay.classList.remove("animate-fade-in");
+      if (reduceMotion) {
+        overlay.classList.add("hidden");
+        lastFocus?.focus();
+        return;
+      }
+
+      overlay.classList.add("animate-fade-out");
+      const hide = (event: AnimationEvent) => {
+        if (event.target !== overlay) return;
+        if (!open) overlay.classList.add("hidden");
+        overlay.removeEventListener("animationend", hide);
+      };
+      overlay.addEventListener("animationend", hide);
+      lastFocus?.focus();
+    };
+
+    toggle.addEventListener("click", () => setOpen(!open));
+
+    links?.forEach((link) => {
+      link.addEventListener("click", () => setOpen(false));
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (!open) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const items = focusables();
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!first || !last) return;
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+  }
+</script>

@@ -1,0 +1,37 @@
+---
+import { getCollection } from "astro:content";
+import BlogCard from "../../components/blog-card.astro";
+import SectionPrompt from "../../components/section-prompt.astro";
+import Layout from "../../layouts/terminal.astro";
+
+const posts = (await getCollection("blog")).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+);
+
+const title = "Blog — Mytheon";
+const description =
+  "Production notes on NestJS APIs: CORS, rate limiting, structured logging, correlation IDs, OpenAPI, and Swagger from Mytheon.";
+---
+
+<Layout title={title} description={description}>
+  <section>
+    <SectionPrompt
+      command="~ ls blog/*.md"
+      comment="all posts, rendered from content collections"
+    />
+    <h1 class="mb-8 text-3xl font-bold tracking-tight">Blog</h1>
+    <div class="grid gap-4">
+      {
+        posts.map((post) => (
+          <BlogCard
+            href={`/blog/${post.id}/`}
+            title={post.data.title}
+            pubDate={post.data.pubDate}
+            minutes={post.data.minutes}
+            tags={post.data.tags}
+          />
+        ))
+      }
+    </div>
+  </section>
+</Layout>

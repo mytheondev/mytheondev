@@ -1,0 +1,15 @@
+---
+import { GITHUB_URL, LINKEDIN_URL, SITE_EMAIL, SITE_NAME, SITE_URL } from "../lib/site";
+
+const schema = {
+  "@context": "https://schema.org",
+  "@type": "Person",
+  name: SITE_NAME,
+  jobTitle: "Full Stack Engineer",
+  url: SITE_URL,
+  email: SITE_EMAIL,
+  sameAs: [GITHUB_URL, LINKEDIN_URL],
+};
+---
+
+<script is:inline type="application/ld+json" set:html={JSON.stringify(schema)} />
