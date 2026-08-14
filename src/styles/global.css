@@ -150,7 +150,6 @@
 }
 
 .menu-toggle {
-  display: inline-flex;
   width: 2.5rem;
   height: 2.5rem;
   flex-direction: column;

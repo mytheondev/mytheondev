@@ -5,7 +5,8 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
 <div id="github-heatmap" data-api={HEATMAP_API_URL}>
   <div class="flex flex-wrap items-end justify-between gap-3">
     <p class="text-sm text-muted">
-      <span data-heatmap-total>—</span> contributions in the last year
+      <span data-heatmap-total>—</span> contributions in the last{" "}
+      <span data-heatmap-range>year</span>
     </p>
     <p class="text-sm text-muted">
       Best streak: <span data-heatmap-streak>—</span>
@@ -30,6 +31,7 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
 <script>
   import {
     bestStreak,
+    filterLastSixMonths,
     HEATMAP_LEVEL_OPACITY,
     monthLabels,
     sumContributions,
@@ -42,9 +44,11 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
   if (root) {
     const api = root.dataset.api ?? "";
     const totalEl = root.querySelector("[data-heatmap-total]");
+    const rangeEl = root.querySelector("[data-heatmap-range]");
     const streakEl = root.querySelector("[data-heatmap-streak]");
     const gridEl = root.querySelector("[data-heatmap-grid]");
     const errorEl = root.querySelector("[data-heatmap-error]");
+    const compact = window.matchMedia("(max-width: 767px)");
 
     const showError = (message: string) => {
       if (!(errorEl instanceof HTMLElement)) return;
@@ -55,13 +59,19 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
     const columns = (count: number) => `repeat(${count}, minmax(0, 1fr))`;
 
     const render = (data: ContributionsResponse) => {
-      const days = data.contributions;
+      const mobile = compact.matches;
+      const days = mobile ? filterLastSixMonths(data.contributions) : data.contributions;
       if (days.length === 0) {
-        showError("No contribution data for the last year.");
+        showError(
+          mobile
+            ? "No contribution data for the last 6 months."
+            : "No contribution data for the last year.",
+        );
         return;
       }
 
       if (totalEl) totalEl.textContent = String(sumContributions(days));
+      if (rangeEl) rangeEl.textContent = mobile ? " 6 months" : "year";
       if (streakEl) streakEl.textContent = `${bestStreak(days)} days`;
 
       const weeks = weeksFromDays(days);
@@ -120,7 +130,7 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
           const level = Math.min(Math.max(day.level, 0), 4);
           const opacity = HEATMAP_LEVEL_OPACITY[level];
           cell.className =
-            "aspect-square w-full min-h-0 rounded-xs ring-1 ring-white/10 md:rounded-sm";
+            "aspect-square w-full min-h-0 rounded-2xs ring-1 ring-white/10 sm:rounded-xs";
           cell.style.backgroundColor =
             day.date === ""
               ? "transparent"
@@ -136,6 +146,8 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
       layout.append(weekdays, chart);
       gridEl?.replaceChildren(layout);
     };
+
+    let cached: ContributionsResponse | null = null;
 
     const load = async () => {
       try {
@@ -155,6 +167,7 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
           return;
         }
 
+        cached = data;
         render(data);
       } catch (error) {
         if (error instanceof TypeError) {
@@ -167,6 +180,10 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
         showError(error instanceof Error ? error.message : "Unknown error loading contributions.");
       }
     };
+
+    compact.addEventListener("change", () => {
+      if (cached) render(cached);
+    });
 
     void load();
   }

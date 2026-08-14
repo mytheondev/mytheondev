@@ -10,20 +10,20 @@ const { home = false } = Astro.props;
 
 <div
   id="nav-overlay"
-  class="absolute inset-0 z-40 hidden bg-surface lg:hidden"
+  class="absolute inset-0 z-40 hidden items-center justify-center bg-surface lg:hidden"
   role="dialog"
   aria-modal="true"
   aria-label="Site menu"
 >
   <!-- tw-animations: animate-fade-in animate-fade-out animate-fade-in-up -->
-  <nav class="flex h-full flex-col items-center justify-center gap-6" aria-label="Mobile">
+  <nav class="flex flex-col items-center justify-center gap-6 text-center" aria-label="Mobile">
     {
       NAV_ITEMS.map((item, index) => (
         <a
           href={home ? `#${item.id}` : `/#${item.id}`}
           data-overlay-link
           class:list={[
-            "animate-fade-in-up text-3xl font-bold text-ink hover:text-brand",
+            "animate-fade-in-up text-center text-3xl font-bold text-ink hover:text-brand",
             index === 0 && "animate-delay-50",
             index === 1 && "animate-delay-100",
             index === 2 && "animate-delay-150",
@@ -59,7 +59,10 @@ const { home = false } = Astro.props;
     const conceal = () => {
       window.clearTimeout(hideTimer);
       overlay.removeEventListener("animationend", onFadeOut);
-      if (!open) overlay.classList.add("hidden");
+      if (!open) {
+        overlay.classList.add("hidden");
+        overlay.classList.remove("flex");
+      }
     };
 
     const onFadeOut = (event: AnimationEvent) => {
@@ -78,7 +81,7 @@ const { home = false } = Astro.props;
         window.clearTimeout(hideTimer);
         overlay.removeEventListener("animationend", onFadeOut);
         overlay.classList.remove("hidden", "animate-fade-out");
-        overlay.classList.add("animate-fade-in");
+        overlay.classList.add("flex", "animate-fade-in");
         links?.forEach((link) => {
           link.classList.remove("animate-fade-in-up");
           void link.offsetWidth;
@@ -92,6 +95,7 @@ const { home = false } = Astro.props;
       overlay.classList.remove("animate-fade-in");
       if (reduceMotion) {
         overlay.classList.add("hidden");
+        overlay.classList.remove("flex");
         lastFocus?.focus();
         return;
       }
