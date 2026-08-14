@@ -1,4 +1,4 @@
-export const SITE_URL = "https://mytheon.dev";
+export const SITE_URL = "https://www.mytheon.dev";
 export const SITE_TITLE = "Mytheon — Software Engineer";
 export const SITE_DESCRIPTION =
   "Software Engineer with 10+ years building APIs and web apps. NestJS, Go, Vue, TypeScript — projects, experience, and production notes.";

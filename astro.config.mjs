@@ -10,7 +10,7 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
   },
-  site: "https://mytheon.dev",
+  site: "https://www.mytheon.dev",
   integrations: [mdx(), sitemap()],
   fonts: [
     {
