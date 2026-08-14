@@ -13,16 +13,7 @@ export const HEATMAP_API_URL = "https://github-contributions-api.jogruber.de/v4/
 
 export const HEATMAP_LEVEL_OPACITY = [0, 0.15, 0.35, 0.6, 1] as const;
 
-export function filterLastSixMonths(
-  contributions: ContributionDay[],
-  now = new Date(),
-): ContributionDay[] {
-  const start = new Date(now);
-  start.setMonth(start.getMonth() - 6);
-  start.setHours(0, 0, 0, 0);
-
-  return contributions.filter((day) => new Date(day.date) >= start);
-}
+export const WEEKDAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""] as const;
 
 export function sumContributions(days: ContributionDay[]): number {
   return days.reduce((total, day) => total + day.count, 0);
@@ -75,4 +66,25 @@ export function weeksFromDays(days: ContributionDay[]): ContributionDay[][] {
   }
 
   return weeks;
+}
+
+export function monthLabels(weeks: ContributionDay[][]): { index: number; label: string }[] {
+  const labels: { index: number; label: string }[] = [];
+  let last = "";
+
+  weeks.forEach((week, index) => {
+    const day = week.find((item) => item.date);
+    if (!day) return;
+
+    const label = new Date(`${day.date}T00:00:00`).toLocaleString("en-US", {
+      month: "short",
+    });
+
+    if (label !== last) {
+      labels.push({ index, label });
+      last = label;
+    }
+  });
+
+  return labels;
 }

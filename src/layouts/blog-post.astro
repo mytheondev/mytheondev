@@ -9,7 +9,7 @@ const { title, description, pubDate, minutes, tags } = Astro.props;
 const pageTitle = `${title} — Mytheon`;
 ---
 
-<Layout title={pageTitle} description={description} type="article">
+<Layout title={pageTitle} description={description} type="article" activeNav="blog">
   <article>
     <p class="text-brand">
       <span aria-hidden="true">➜</span>

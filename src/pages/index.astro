@@ -1,7 +1,6 @@
 ---
 import BlogCard from "../components/blog-card.astro";
-import BlinkingCursor from "../components/blinking-cursor.astro";
-import CopyEmail from "../components/copy-email.astro";
+// import CopyEmail from "../components/copy-email.astro";
 import ExperienceCard from "../components/experience-card.astro";
 import GithubHeatmap from "../components/github-heatmap.astro";
 import ProjectCard from "../components/project-card.astro";
@@ -9,7 +8,7 @@ import SectionPrompt from "../components/section-prompt.astro";
 import Typewriter from "../components/typewriter.astro";
 import Layout from "../layouts/terminal.astro";
 import { getFeaturedProjects } from "../lib/github-projects";
-import { GITHUB_URL, LINKEDIN_URL, SITE_DESCRIPTION, SITE_TITLE } from "../lib/site";
+import { GITHUB_URL, INSTAGRAM_URL, LINKEDIN_URL, SITE_DESCRIPTION, SITE_TITLE } from "../lib/site";
 import { getCollection } from "astro:content";
 
 const projects = await getFeaturedProjects();
@@ -17,27 +16,37 @@ const posts = (await getCollection("blog"))
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
   .slice(0, 3);
 
-const stack = ["NestJS", "Go", "Vue", "Nuxt", "TypeScript"];
+const stack = [
+  "NestJS",
+  "Go",
+  "Vue",
+  "React",
+  "TypeScript",
+  "NodeJS",
+  "PostgreSQL",
+  "MySQL",
+  "SQL Server",
+  "Docker",
+  "GCP",
+];
 
-const reveal = "animate-fade-in-up timeline-view animate-range-entry border-t border-white/5 py-16";
+const reveal = "animate-fade-in-up timeline-view animate-range-entry py-16";
 ---
 
 <Layout title={SITE_TITLE} description={SITE_DESCRIPTION} home>
   <section id="about">
-    <SectionPrompt
-      command="~ whoami → About"
-      comment="identity dump — name, role, and what I build"
-    />
-    <p class="text-sm text-muted">mytheon</p>
+    <SectionPrompt command="~ whoami" comment="identity dump — name, role, and what I build" />
+    <p class="text-sm text-muted">Hi! I'm a</p>
     <Typewriter
-      text="Full Stack Engineer"
+      text="Software Engineer"
       class="mt-2 text-3xl font-bold tracking-tight md:text-5xl"
     />
     <h2 class="sr-only">About</h2>
     <p class="mt-6 max-w-3xl text-base leading-relaxed text-muted">
-      Full Stack Engineer with 10+ years of experience designing and building scalable end-to-end
-      systems. I care about architecture, clean code, and shipping robust applications on both
-      backend and frontend. Currently building with:
+      I still get a kick out of turning messy problems into systems people can actually use. APIs,
+      data, the interface someone touches — I want the whole path to feel intentional, not bolted
+      on. Architecture and clean code are how I stay honest when things get heavy. Right now that
+      energy goes into:
     </p>
     <ul class="mt-5 flex flex-wrap gap-2">
       {
@@ -72,13 +81,14 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry border-t bo
         dates="2026, present"
         description="Part of the Customer Experience squad, developing end-to-end solutions that directly impact the user. I work on frontend and backend, collaborating with the team to build maintainable, scalable, user-centered digital products."
         stack={[
+          "Java",
           "Go",
           "TypeScript",
-          "Node.js",
+          "NodeJS",
           "Vue",
           "MongoDB",
-          "Tailwind CSS",
           "PostgreSQL",
+          "BigQuery",
           "Docker",
           "GCP",
         ]}
@@ -91,7 +101,7 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry border-t bo
         stack={[
           "TypeScript",
           "Astro",
-          "Next.js",
+          "NextJS",
           "React",
           ".NET",
           "NestJS",
@@ -99,7 +109,6 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry border-t bo
           "PostgreSQL",
           "MySQL",
           "SQL Server",
-          "Prisma",
           "Docker",
         ]}
       />
@@ -107,10 +116,7 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry border-t bo
   </section>
 
   <section id="github" class={reveal}>
-    <SectionPrompt
-      command="~ curl api.github.com/stats"
-      comment="public contribution graph for mytheondev"
-    />
+    <SectionPrompt command="~ curl api.github.com/stats" comment="my GitHub contribution graph" />
     <h2 class="mb-6 text-xl font-semibold">GitHub</h2>
     <GithubHeatmap />
   </section>
@@ -118,7 +124,7 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry border-t bo
   <section id="blog" class={reveal}>
     <SectionPrompt
       command="~ ls blog/*.md"
-      comment="latest notes — indexable markdown, no client fetch"
+      comment="latest notes — indexable markdown, no client-size fetch"
     />
     <h2 class="mb-6 text-xl font-semibold">Blog</h2>
     <div class="grid gap-4">
@@ -145,44 +151,43 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry border-t bo
   </section>
 
   <section id="contact" class={reveal}>
-    <SectionPrompt
-      command="~ cat contact.md"
-      comment="open a channel — email copies to the clipboard"
-    />
+    <SectionPrompt command="~ cat contact.md" comment="# open a channel — follow the signal" />
     <h2 class="mb-6 text-xl font-semibold">Contact</h2>
-    <div class="rounded-lg border border-white/10 p-5 md:p-6">
-      <ul class="space-y-4 text-sm">
-        <li>
-          <a
-            href={GITHUB_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
-          >
-            github.com/mytheondev
-          </a>
-        </li>
-        <li>
-          <a
-            href={LINKEDIN_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
-          >
-            linkedin.com/in/mytheon
-          </a>
-        </li>
-        <li>
-          <CopyEmail />
-        </li>
-      </ul>
-    </div>
-  </section>
 
-  <footer class="mt-16 border-t border-white/5 pt-8 text-sm text-muted">
-    <p>
-      © 2026 mytheon.dev · code, coffee ☕ and love. · Astro · Tailwind CSS · TypeScript
-      <BlinkingCursor />
-    </p>
-  </footer>
+    <ul class="space-y-4 text-sm">
+      <li>
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
+        >
+          github.com/mytheondev
+        </a>
+      </li>
+      <li>
+        <a
+          href={LINKEDIN_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
+        >
+          linkedin.com/in/mytheon
+        </a>
+      </li>
+      <li>
+        <a
+          href={INSTAGRAM_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
+        >
+          instagram.com/mytheon.dev
+        </a>
+      </li>
+      <!-- <li>
+          <CopyEmail />
+        </li> -->
+    </ul>
+  </section>
 </Layout>

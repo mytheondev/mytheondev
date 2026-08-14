@@ -2,32 +2,27 @@
 import { HEATMAP_API_URL } from "../lib/github-heatmap";
 ---
 
-<div
-  id="github-heatmap"
-  class="rounded-lg border border-white/10 p-5 md:p-6"
-  data-api={HEATMAP_API_URL}
->
+<div id="github-heatmap" data-api={HEATMAP_API_URL}>
   <div class="flex flex-wrap items-end justify-between gap-3">
     <p class="text-sm text-muted">
-      <span data-heatmap-total>—</span> contributions in the last 6 months
+      <span data-heatmap-total>—</span> contributions in the last year
     </p>
     <p class="text-sm text-muted">
       Best streak: <span data-heatmap-streak>—</span>
     </p>
   </div>
 
-  <div data-heatmap-grid class="mt-5 overflow-x-auto" aria-label="GitHub contribution heatmap">
-  </div>
+  <div data-heatmap-grid class="mt-5 min-w-0" aria-label="GitHub contribution heatmap"></div>
 
   <p data-heatmap-error class="mt-4 hidden text-sm text-brand" role="status"></p>
 
   <div class="mt-4 flex items-center justify-end gap-1 text-xs text-muted">
     <span>Less</span>
-    <span class="size-2.5 rounded-sm bg-brand/0 ring-1 ring-white/10"></span>
-    <span class="size-2.5 rounded-sm bg-brand/15"></span>
-    <span class="size-2.5 rounded-sm bg-brand/35"></span>
-    <span class="size-2.5 rounded-sm bg-brand/60"></span>
-    <span class="size-2.5 rounded-sm bg-brand"></span>
+    <span class="size-2.5 rounded-full bg-brand/0 ring-1 ring-white/10"></span>
+    <span class="size-2.5 rounded-full bg-brand/15"></span>
+    <span class="size-2.5 rounded-full bg-brand/35"></span>
+    <span class="size-2.5 rounded-full bg-brand/60"></span>
+    <span class="size-2.5 rounded-full bg-brand"></span>
     <span>More</span>
   </div>
 </div>
@@ -35,9 +30,10 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
 <script>
   import {
     bestStreak,
-    filterLastSixMonths,
     HEATMAP_LEVEL_OPACITY,
+    monthLabels,
     sumContributions,
+    WEEKDAY_LABELS,
     weeksFromDays,
     type ContributionsResponse,
   } from "../lib/github-heatmap";
@@ -56,26 +52,75 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
       errorEl.classList.remove("hidden");
     };
 
+    const columns = (count: number) => `repeat(${count}, minmax(0, 1fr))`;
+
     const render = (data: ContributionsResponse) => {
-      const recent = filterLastSixMonths(data.contributions);
-      if (recent.length === 0) {
-        showError("No contribution data for the last 6 months.");
+      const days = data.contributions;
+      if (days.length === 0) {
+        showError("No contribution data for the last year.");
         return;
       }
 
-      if (totalEl) totalEl.textContent = String(sumContributions(recent));
-      if (streakEl) streakEl.textContent = `${bestStreak(recent)} days`;
+      if (totalEl) totalEl.textContent = String(sumContributions(days));
+      if (streakEl) streakEl.textContent = `${bestStreak(days)} days`;
 
-      const weeks = weeksFromDays(recent);
+      const weeks = weeksFromDays(days);
+      const months = monthLabels(weeks);
+
+      const layout = document.createElement("div");
+      layout.className = "flex w-full min-w-0 items-stretch gap-2";
+
+      const weekdays = document.createElement("div");
+      weekdays.className = "flex w-8 shrink-0 flex-col";
+      weekdays.setAttribute("aria-hidden", "true");
+
+      const weekdaySpacer = document.createElement("div");
+      weekdaySpacer.className = "h-4 shrink-0";
+
+      const weekdayCol = document.createElement("div");
+      weekdayCol.className = "grid flex-1 grid-rows-7 gap-1 text-[10px] leading-none text-muted";
+
+      for (const label of WEEKDAY_LABELS) {
+        const row = document.createElement("span");
+        row.className = "flex items-center";
+        row.textContent = label;
+        weekdayCol.append(row);
+      }
+
+      weekdays.append(weekdaySpacer, weekdayCol);
+
+      const chart = document.createElement("div");
+      chart.className = "flex min-w-0 flex-1 flex-col gap-1";
+
+      const labels = document.createElement("div");
+      labels.className = "grid h-4 w-full gap-1 text-[10px] leading-none text-muted";
+      labels.style.gridTemplateColumns = columns(weeks.length);
+      labels.setAttribute("aria-hidden", "true");
+
+      months.forEach((month, i) => {
+        const next = months[i + 1];
+        const maxSpan = (next ? next.index : weeks.length) - month.index;
+        const span = Math.min(3, Math.max(1, maxSpan));
+        const cell = document.createElement("span");
+        cell.textContent = month.label;
+        cell.className = "truncate";
+        cell.style.gridColumn = `${month.index + 1} / span ${span}`;
+        labels.append(cell);
+      });
+
       const grid = document.createElement("div");
-      grid.className = "grid w-max grid-flow-col grid-rows-7 gap-1";
+      grid.className = "grid w-full flex-1 gap-1 bg-surface";
+      grid.style.gridTemplateColumns = columns(weeks.length);
+      grid.style.gridTemplateRows = "repeat(7, minmax(0, 1fr))";
+      grid.style.gridAutoFlow = "column";
 
       for (const week of weeks) {
         for (const day of week) {
           const cell = document.createElement("span");
           const level = Math.min(Math.max(day.level, 0), 4);
           const opacity = HEATMAP_LEVEL_OPACITY[level];
-          cell.className = "size-2.5 rounded-sm ring-1 ring-white/10";
+          cell.className =
+            "aspect-square w-full min-h-0 rounded-xs ring-1 ring-white/10 md:rounded-sm";
           cell.style.backgroundColor =
             day.date === ""
               ? "transparent"
@@ -87,7 +132,9 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
         }
       }
 
-      gridEl?.replaceChildren(grid);
+      chart.append(labels, grid);
+      layout.append(weekdays, chart);
+      gridEl?.replaceChildren(layout);
     };
 
     const load = async () => {

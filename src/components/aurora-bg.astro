@@ -1,0 +1,56 @@
+<div class="page-bg" aria-hidden="true">
+  <span class="aurora-layer" style="--aurora-speed: 0.12">
+    <span class="aurora-orb aurora-orb-a"></span>
+  </span>
+  <span class="aurora-layer" style="--aurora-speed: 0.22">
+    <span class="aurora-orb aurora-orb-b"></span>
+  </span>
+  <span class="aurora-layer" style="--aurora-speed: 0.08">
+    <span class="aurora-orb aurora-orb-c"></span>
+  </span>
+</div>
+
+<script>
+  const root = document.querySelector(".page-bg");
+  const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  if (root instanceof HTMLElement) {
+    const apply = () => {
+      root.style.setProperty("--aurora-y", `${window.scrollY}px`);
+    };
+
+    let listening = false;
+
+    const start = () => {
+      if (listening) return;
+      listening = true;
+      apply();
+      window.addEventListener("scroll", apply, { passive: true });
+    };
+
+    const stop = () => {
+      if (!listening) return;
+      listening = false;
+      window.removeEventListener("scroll", apply);
+    };
+
+    const sync = () => {
+      if (motion.matches) {
+        stop();
+        root.style.removeProperty("--aurora-y");
+        return;
+      }
+
+      if (document.hidden) {
+        stop();
+        return;
+      }
+
+      start();
+    };
+
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    motion.addEventListener("change", sync);
+  }
+</script>

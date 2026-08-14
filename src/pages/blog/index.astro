@@ -10,10 +10,10 @@ const posts = (await getCollection("blog")).sort(
 
 const title = "Blog — Mytheon";
 const description =
-  "Production notes on NestJS APIs: CORS, rate limiting, structured logging, correlation IDs, OpenAPI, and Swagger from Mytheon.";
+  "Writing on Git, NestJS APIs, and JavaScript tooling — pnpm vs npm, security headers, logging, and OpenAPI notes from Mytheon.";
 ---
 
-<Layout title={title} description={description}>
+<Layout title={title} description={description} activeNav="blog">
   <section>
     <SectionPrompt
       command="~ ls blog/*.md"

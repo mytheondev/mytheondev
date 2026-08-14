@@ -12,10 +12,7 @@ interface Props {
 const { href, title, pubDate, minutes, tags } = Astro.props;
 ---
 
-<a
-  href={href}
-  class="group block rounded-lg border border-white/10 p-5 transition-colors hover:border-brand"
->
+<a href={href} class="card-hover group block rounded-lg border border-white/10 p-5">
   <h3 class="font-semibold text-ink group-hover:text-brand">{title}</h3>
   <p class="mt-2 text-xs text-muted">
     <FormattedDate date={pubDate} />

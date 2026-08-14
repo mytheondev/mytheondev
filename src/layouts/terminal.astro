@@ -1,8 +1,10 @@
 ---
 import type { ImageMetadata } from "astro";
 import BaseHead from "../components/base-head.astro";
+import AuroraBg from "../components/aurora-bg.astro";
 import JsonLd from "../components/json-ld.astro";
 import NavOverlay from "../components/nav-overlay.astro";
+import SiteFooter from "../components/site-footer.astro";
 import TerminalTitleBar from "../components/terminal-title-bar.astro";
 import TerminalWindow from "../components/terminal-window.astro";
 
@@ -12,9 +14,10 @@ interface Props {
   image?: ImageMetadata;
   type?: "website" | "article";
   home?: boolean;
+  activeNav?: string;
 }
 
-const { title, description, image, type, home = false } = Astro.props;
+const { title, description, image, type, home = false, activeNav } = Astro.props;
 ---
 
 <!doctype html>
@@ -24,14 +27,16 @@ const { title, description, image, type, home = false } = Astro.props;
     <JsonLd />
   </head>
   <body>
+    <AuroraBg />
     <div class="scanlines" aria-hidden="true"></div>
     <TerminalWindow>
-      <TerminalTitleBar home={home} />
-      <div class="px-4 py-8 md:px-8 md:py-10">
+      <TerminalTitleBar home={home} activeNav={activeNav} />
+      <NavOverlay home={home} />
+      <div class="flex-1 px-4 py-8 md:px-8 md:py-10">
         <slot />
       </div>
+      <SiteFooter />
     </TerminalWindow>
-    <NavOverlay home={home} />
     {
       home && (
         <script>

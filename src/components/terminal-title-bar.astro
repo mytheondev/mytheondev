@@ -3,21 +3,26 @@ import { NAV_ITEMS } from "../lib/site";
 
 interface Props {
   home?: boolean;
+  activeNav?: string;
 }
 
-const { home = false } = Astro.props;
+const { home = false, activeNav } = Astro.props;
 ---
 
 <header
-  class="sticky top-0 z-50 flex items-center gap-3 border-b border-white/10 bg-surface/90 px-3 py-2.5 backdrop-blur-md md:px-4"
+  id="site-header"
+  class="sticky top-0 z-50 flex items-center gap-3 border-b border-white/10 bg-surface/80 px-3 py-2.5 backdrop-blur-md transition-transform duration-300 ease-out md:rounded-t-lg md:px-4"
 >
+  <!-- tw: -translate-y-full -->
   <div class="flex shrink-0 items-center gap-1.5" aria-hidden="true">
     <span class="size-2.5 rounded-full bg-white/15"></span>
     <span class="size-2.5 rounded-full bg-white/15"></span>
     <span class="size-2.5 rounded-full bg-white/15"></span>
   </div>
 
-  <p class="min-w-0 flex-1 truncate text-xs text-muted md:text-sm">mytheon@dev — zsh — 120×40</p>
+  <p class="min-w-0 flex-1 truncate text-xs text-muted md:text-sm">
+    <a href="/" class="text-ink hover:text-brand hover:decoration-brand">mytheon@dev</a> — zsh — 120×40
+  </p>
 
   <nav class="hidden items-center gap-4 lg:flex" aria-label="Primary">
     {
@@ -25,7 +30,10 @@ const { home = false } = Astro.props;
         <a
           href={home ? `#${item.id}` : `/#${item.id}`}
           data-nav-link={item.id}
-          class="text-sm text-ink transition-colors hover:text-brand"
+          class:list={[
+            "text-sm transition-colors hover:text-brand",
+            activeNav === item.id ? "text-brand" : "text-ink",
+          ]}
         >
           {item.label}
         </a>
@@ -36,11 +44,41 @@ const { home = false } = Astro.props;
   <button
     type="button"
     id="menu-toggle"
-    class="relative z-50 inline-flex size-10 items-center justify-center text-ink lg:hidden"
+    class="menu-toggle relative z-50 hidden"
     aria-label="Open menu"
     aria-expanded="false"
     aria-controls="nav-overlay"
   >
-    <span data-menu-icon class="text-2xl leading-none">☰</span>
+    <span class="menu-toggle-bar" aria-hidden="true"></span>
+    <span class="menu-toggle-bar" aria-hidden="true"></span>
+    <span class="menu-toggle-bar" aria-hidden="true"></span>
   </button>
 </header>
+
+<script>
+  const header = document.getElementById("site-header");
+  const toggle = document.getElementById("menu-toggle");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (header && !reduceMotion) {
+    let lastY = window.scrollY;
+
+    const onScroll = () => {
+      const y = window.scrollY;
+      const menuOpen = toggle?.getAttribute("aria-expanded") === "true";
+
+      if (menuOpen || y < 16) {
+        header.classList.remove("-translate-y-full");
+        lastY = y;
+        return;
+      }
+
+      if (Math.abs(y - lastY) < 8) return;
+
+      header.classList.toggle("-translate-y-full", y > lastY);
+      lastY = y;
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+  }
+</script>

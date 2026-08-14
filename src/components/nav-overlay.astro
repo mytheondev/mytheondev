@@ -10,7 +10,7 @@ const { home = false } = Astro.props;
 
 <div
   id="nav-overlay"
-  class="fixed inset-0 z-40 hidden bg-surface lg:hidden"
+  class="absolute inset-0 z-40 hidden bg-surface lg:hidden"
   role="dialog"
   aria-modal="true"
   aria-label="Site menu"
@@ -42,12 +42,12 @@ const { home = false } = Astro.props;
 <script>
   const overlay = document.getElementById("nav-overlay");
   const toggle = document.getElementById("menu-toggle");
-  const icon = toggle?.querySelector<HTMLElement>("[data-menu-icon]");
   const links = overlay?.querySelectorAll<HTMLAnchorElement>("[data-overlay-link]");
 
-  if (overlay && toggle && icon) {
+  if (overlay && toggle) {
     let open = false;
     let lastFocus: HTMLElement | null = null;
+    let hideTimer = 0;
 
     const focusables = () =>
       [toggle, ...Array.from(links ?? [])].filter(
@@ -56,14 +56,27 @@ const { home = false } = Astro.props;
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    const conceal = () => {
+      window.clearTimeout(hideTimer);
+      overlay.removeEventListener("animationend", onFadeOut);
+      if (!open) overlay.classList.add("hidden");
+    };
+
+    const onFadeOut = (event: AnimationEvent) => {
+      if (event.target !== overlay) return;
+      conceal();
+    };
+
     const setOpen = (next: boolean) => {
       open = next;
       document.body.style.overflow = open ? "hidden" : "";
       toggle.setAttribute("aria-expanded", String(open));
       toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
-      icon.textContent = open ? "×" : "☰";
+      toggle.classList.toggle("is-open", open);
 
       if (open) {
+        window.clearTimeout(hideTimer);
+        overlay.removeEventListener("animationend", onFadeOut);
         overlay.classList.remove("hidden", "animate-fade-out");
         overlay.classList.add("animate-fade-in");
         links?.forEach((link) => {
@@ -84,12 +97,8 @@ const { home = false } = Astro.props;
       }
 
       overlay.classList.add("animate-fade-out");
-      const hide = (event: AnimationEvent) => {
-        if (event.target !== overlay) return;
-        if (!open) overlay.classList.add("hidden");
-        overlay.removeEventListener("animationend", hide);
-      };
-      overlay.addEventListener("animationend", hide);
+      overlay.addEventListener("animationend", onFadeOut);
+      hideTimer = window.setTimeout(conceal, 300);
       lastFocus?.focus();
     };
 

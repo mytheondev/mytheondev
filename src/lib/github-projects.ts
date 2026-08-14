@@ -10,6 +10,7 @@ export const LANGUAGE_COLORS: Record<string, string> = {
   TypeScript: "#3b82f6",
   JavaScript: "#eab308",
   Go: "#22d3ee",
+  Astro: "#cd5c5c",
 };
 
 const GITHUB_USER = "mytheondev";
