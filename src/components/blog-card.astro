@@ -1,29 +1,28 @@
 ---
 import FormattedDate from "./formatted-date.astro";
+import TagList from "./tag-list.astro";
 
 interface Props {
   href: string;
   title: string;
+  description: string;
   pubDate: Date;
   minutes: number;
   tags: string[];
 }
 
-const { href, title, pubDate, minutes, tags } = Astro.props;
+const { href, title, description, pubDate, minutes, tags } = Astro.props;
 ---
 
-<a href={href} class="card-hover group block rounded-lg border border-white/10 p-5">
-  <h3 class="font-semibold text-ink group-hover:text-brand">{title}</h3>
+<article class="card-hover group rounded-lg border border-white/10 p-5">
+  <h3 class="font-semibold">
+    <a href={href} class="text-ink group-hover:text-brand">{title}</a>
+  </h3>
+  <p class="mt-2 line-clamp-2 text-sm leading-relaxed text-muted">{description}</p>
   <p class="mt-2 text-xs text-muted">
     <FormattedDate date={pubDate} />
     <span aria-hidden="true"> · </span>
     {minutes} min
   </p>
-  <ul class="mt-3 flex flex-wrap gap-2">
-    {
-      tags.map((tag) => (
-        <li class="rounded-md border border-white/10 px-2 py-0.5 text-xs text-muted">{tag}</li>
-      ))
-    }
-  </ul>
-</a>
+  <TagList tags={tags} class="mt-3" />
+</article>

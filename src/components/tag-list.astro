@@ -1,0 +1,25 @@
+---
+import { tagHref } from "../lib/blog";
+
+interface Props {
+  tags: string[];
+  class?: string;
+}
+
+const { tags, class: className } = Astro.props;
+---
+
+<ul class:list={["flex flex-wrap gap-2", className]}>
+  {
+    tags.map((tag) => (
+      <li>
+        <a
+          href={tagHref(tag)}
+          class="rounded-md border border-white/10 px-2 py-0.5 text-xs text-muted hover:border-brand hover:text-brand"
+        >
+          {tag}
+        </a>
+      </li>
+    ))
+  }
+</ul>

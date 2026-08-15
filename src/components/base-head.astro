@@ -10,10 +10,19 @@ interface Props {
   description: string;
   image?: ImageMetadata;
   type?: "website" | "article";
+  publishedTime?: Date;
+  modifiedTime?: Date;
 }
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
-const { title, description, image = OgImage, type = "website" } = Astro.props;
+const {
+  title,
+  description,
+  image = OgImage,
+  type = "website",
+  publishedTime,
+  modifiedTime,
+} = Astro.props;
 const imageURL = new URL(image.src, Astro.site);
 ---
 
@@ -55,3 +64,15 @@ const imageURL = new URL(image.src, Astro.site);
 <meta name="twitter:title" content={title} />
 <meta name="twitter:description" content={description} />
 <meta name="twitter:image" content={imageURL} />
+
+{
+  type === "article" && publishedTime && (
+    <>
+      <meta property="article:published_time" content={publishedTime.toISOString()} />
+      <meta
+        property="article:modified_time"
+        content={(modifiedTime ?? publishedTime).toISOString()}
+      />
+    </>
+  )
+}

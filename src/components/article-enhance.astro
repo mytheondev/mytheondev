@@ -1,0 +1,69 @@
+<script>
+  const root = document.querySelector(".article-body");
+  if (root instanceof HTMLElement) {
+    const headings = root.querySelectorAll<HTMLElement>("h2[id], h3[id]");
+    for (const heading of headings) {
+      if (heading.querySelector(".heading-anchor")) continue;
+      const anchor = document.createElement("a");
+      anchor.href = `#${heading.id}`;
+      anchor.className = "heading-anchor";
+      anchor.textContent = "#";
+      anchor.setAttribute("aria-label", `Link to ${heading.textContent ?? "section"}`);
+      heading.append(anchor);
+    }
+
+    const tables = root.querySelectorAll<HTMLTableElement>("table");
+    for (const table of tables) {
+      if (table.parentElement?.classList.contains("table-wrap")) continue;
+      const wrap = document.createElement("div");
+      wrap.className = "table-wrap";
+      table.replaceWith(wrap);
+      wrap.append(table);
+    }
+
+    const blocks = root.querySelectorAll<HTMLPreElement>("pre.astro-code, pre[data-language]");
+    for (const pre of blocks) {
+      if (pre.classList.contains("mermaid")) continue;
+      if (pre.parentElement?.classList.contains("code-block")) continue;
+
+      const lang = pre.dataset.language ?? "";
+      const figure = document.createElement("div");
+      figure.className = "code-block";
+
+      const meta = document.createElement("div");
+      meta.className = "code-block-meta";
+
+      const label = document.createElement("span");
+      label.textContent = lang || "code";
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "code-copy";
+      button.textContent = "Copy";
+      button.setAttribute("aria-label", "Copy code");
+
+      const original = "Copy";
+      button.addEventListener("click", async () => {
+        const text = pre.textContent ?? "";
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          const input = document.createElement("textarea");
+          input.value = text;
+          document.body.append(input);
+          input.select();
+          document.execCommand("copy");
+          input.remove();
+        }
+        button.textContent = "copied!";
+        window.setTimeout(() => {
+          button.textContent = original;
+        }, 1800);
+      });
+
+      meta.append(label, button);
+      pre.replaceWith(figure);
+      figure.append(meta, pre);
+    }
+  }
+</script>

@@ -7,6 +7,7 @@ import NavOverlay from "../components/nav-overlay.astro";
 import SiteFooter from "../components/site-footer.astro";
 import TerminalTitleBar from "../components/terminal-title-bar.astro";
 import TerminalWindow from "../components/terminal-window.astro";
+import { SITE_URL } from "../lib/site";
 
 interface Props {
   title: string;
@@ -15,24 +16,63 @@ interface Props {
   type?: "website" | "article";
   home?: boolean;
   activeNav?: string;
+  titlePath?: string;
+  headline?: string;
+  publishedTime?: Date;
+  modifiedTime?: Date;
+  articleTags?: string[];
 }
 
-const { title, description, image, type, home = false, activeNav } = Astro.props;
+const {
+  title,
+  description,
+  image,
+  type,
+  home = false,
+  activeNav,
+  titlePath,
+  headline,
+  publishedTime,
+  modifiedTime,
+  articleTags,
+} = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? SITE_URL).href;
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
-    <BaseHead title={title} description={description} image={image} type={type} />
-    <JsonLd />
+    <BaseHead
+      title={title}
+      description={description}
+      image={image}
+      type={type}
+      publishedTime={publishedTime}
+      modifiedTime={modifiedTime}
+    />
+    <JsonLd
+      type={type}
+      headline={headline ?? title}
+      description={description}
+      url={canonicalURL}
+      publishedTime={publishedTime}
+      modifiedTime={modifiedTime}
+      tags={articleTags}
+    />
   </head>
   <body>
+    <a class="skip-link" href="#main">Skip to content</a>
     <AuroraBg />
-    <div class="scanlines" aria-hidden="true"></div>
+    <div
+      class:list={["scanlines", type === "article" && "scanlines-article"]}
+      aria-hidden="true"
+    >
+    </div>
     <TerminalWindow>
-      <TerminalTitleBar home={home} activeNav={activeNav} />
+      <TerminalTitleBar home={home} activeNav={activeNav} titlePath={titlePath} />
       <NavOverlay home={home} />
-      <div class="flex-1 px-4 py-8 md:px-8 md:py-10">
+      <div id="main" class="flex-1 px-4 py-8 md:px-8 md:py-10" tabindex="-1">
         <slot />
       </div>
       <SiteFooter />

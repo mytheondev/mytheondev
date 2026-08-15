@@ -1,49 +1,148 @@
 ---
 import type { CollectionEntry } from "astro:content";
+import type { MarkdownHeading } from "astro";
+import ArticleEnhance from "../components/article-enhance.astro";
+import ArticleToc from "../components/article-toc.astro";
 import FormattedDate from "../components/formatted-date.astro";
+import TagList from "../components/tag-list.astro";
+import { datesDiffer, slugFromId, tocHeadings, type BlogPost } from "../lib/blog";
 import Layout from "./terminal.astro";
 
-type Props = CollectionEntry<"blog">["data"];
+interface Props {
+  post: CollectionEntry<"blog">;
+  minutes: number;
+  headings: MarkdownHeading[];
+  showToc: boolean;
+  related: BlogPost[];
+  older?: BlogPost;
+  newer?: BlogPost;
+}
 
-const { title, description, pubDate, minutes, tags } = Astro.props;
+const { post, minutes, headings, showToc, related, older, newer } = Astro.props;
+const { title, description, pubDate, updatedDate, tags, prerequisites } = post.data;
 const pageTitle = `${title} — Mytheon`;
+const slug = slugFromId(post.id);
+const showUpdated = datesDiffer(pubDate, updatedDate);
+const toc = tocHeadings(headings);
+const hasToc = showToc && toc.length > 0;
 ---
 
-<Layout title={pageTitle} description={description} type="article" activeNav="blog">
+<Layout
+  title={pageTitle}
+  headline={title}
+  description={description}
+  type="article"
+  activeNav="blog"
+  titlePath={`~/blog/${slug}`}
+  publishedTime={pubDate}
+  modifiedTime={updatedDate}
+  articleTags={tags}
+>
   <article>
     <p class="text-brand">
       <span aria-hidden="true">➜</span>
-      {" "}~ cat blog/{title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.md
+      {" "}~ cat blog/{slug}.md
     </p>
-    <p class="mt-1 text-xs text-muted"># {minutes} min read</p>
 
     <header class="mt-8">
-      <p class="text-sm text-muted">
+      <p class="text-xs text-muted">
+        <a href="/blog/" class="hover:text-brand">blog</a>
+        <span aria-hidden="true"> /</span>
+      </p>
+      <p class="mt-3 text-sm text-muted">
         <FormattedDate date={pubDate} />
         <span aria-hidden="true"> · </span>
         {minutes} min
+        {
+          showUpdated && updatedDate && (
+            <>
+              <span aria-hidden="true"> · </span>
+              Updated <FormattedDate date={updatedDate} />
+            </>
+          )
+        }
       </p>
       <h1 class="mt-3 text-3xl font-bold tracking-tight md:text-4xl">{title}</h1>
-      <ul class="mt-4 flex flex-wrap gap-2">
-        {
-          tags.map((tag) => (
-            <li class="rounded-md border border-white/10 px-2 py-0.5 text-xs text-muted">{tag}</li>
-          ))
-        }
-      </ul>
+      <p class="mt-4 max-w-[68ch] text-base leading-7 text-muted">{description}</p>
+      <TagList tags={tags} class="mt-4" />
+      {
+        prerequisites && prerequisites.length > 0 && (
+          <p class="mt-4 max-w-[68ch] text-sm text-muted">
+            Prerequisites: {prerequisites.join(" · ")}
+          </p>
+        )
+      }
     </header>
 
-    <div class="article-body mt-10">
-      <slot />
-    </div>
+    <div
+      class:list={[
+        hasToc &&
+          "mt-8 lg:mt-10 lg:grid lg:grid-cols-[minmax(0,68ch)_minmax(12rem,1fr)] lg:items-start lg:gap-8",
+      ]}
+    >
+      {hasToc && <ArticleToc headings={toc} />}
 
-    <p class="mt-12 border-t border-white/5 pt-6">
-      <a
-        href="/blog/"
-        class="text-sm text-brand underline decoration-brand/40 underline-offset-4 hover:decoration-brand"
-      >
-        ← Back to blog
-      </a>
-    </p>
+      <div class:list={[hasToc && "mt-10 min-w-0 lg:col-start-1 lg:row-start-1 lg:mt-0"]}>
+        <div class:list={["article-body", !hasToc && "mt-10"]}>
+          <slot />
+        </div>
+
+        {
+          (older || newer || related.length > 0) && (
+            <nav class="mt-12 max-w-[68ch] border-t border-white/5 pt-6" aria-label="More articles">
+              {(older || newer) && (
+                <div class="flex flex-col gap-3 sm:flex-row sm:justify-between">
+                  {older ? (
+                    <a
+                      href={`/blog/${older.id}/`}
+                      class="text-sm text-muted underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
+                    >
+                      ← {older.data.title}
+                    </a>
+                  ) : (
+                    <span />
+                  )}
+                  {newer && (
+                    <a
+                      href={`/blog/${newer.id}/`}
+                      class="text-sm text-muted underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand sm:text-right"
+                    >
+                      {newer.data.title} →
+                    </a>
+                  )}
+                </div>
+              )}
+              {related.length > 0 && (
+                <div class={older || newer ? "mt-8" : ""}>
+                  <p class="text-xs text-muted"># related</p>
+                  <ul class="mt-2 space-y-1.5">
+                    {related.map((item) => (
+                      <li>
+                        <a
+                          href={`/blog/${item.id}/`}
+                          class="text-sm text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
+                        >
+                          {item.data.title}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </nav>
+          )
+        }
+
+        <p class="mt-12 max-w-[68ch] border-t border-white/5 pt-6">
+          <a
+            href="/blog/"
+            class="text-sm text-brand underline decoration-brand/40 underline-offset-4 hover:decoration-brand"
+          >
+            ← Back to blog
+          </a>
+        </p>
+      </div>
+    </div>
   </article>
+  <ArticleEnhance />
 </Layout>

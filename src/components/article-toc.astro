@@ -1,0 +1,83 @@
+---
+import type { MarkdownHeading } from "astro";
+
+interface Props {
+  headings: MarkdownHeading[];
+}
+
+const { headings } = Astro.props;
+---
+
+<nav
+  id="article-toc"
+  class="max-w-[68ch] lg:sticky lg:top-20 lg:z-10 lg:col-start-2 lg:row-start-1 lg:max-h-[calc(100svh-6rem)] lg:max-w-none lg:overflow-y-auto"
+  aria-label="On this page"
+>
+  <p class="text-xs text-muted"># on this page</p>
+  <ol class="mt-2 space-y-1.5 text-sm leading-snug lg:text-xs">
+    {
+      headings.map((heading) => (
+        <li>
+          <a href={`#${heading.slug}`} class="article-toc-link">
+            {heading.text}
+          </a>
+        </li>
+      ))
+    }
+  </ol>
+</nav>
+
+<script>
+  const toc = document.getElementById("article-toc");
+  const body = document.querySelector(".article-body");
+  if (toc instanceof HTMLElement && body instanceof HTMLElement) {
+    const links = [...toc.querySelectorAll<HTMLAnchorElement>(".article-toc-link")];
+    const headings = [...body.querySelectorAll<HTMLElement>("h2[id]")];
+    if (links.length && headings.length) {
+      const visible = new Set<string>();
+      let currentId: string | undefined;
+
+      const setActive = (id: string | undefined) => {
+        if (id === currentId) return;
+        currentId = id;
+
+        for (const link of links) {
+          const active = id !== undefined && link.hash === `#${id}`;
+          if (active) link.setAttribute("aria-current", "location");
+          else link.removeAttribute("aria-current");
+        }
+
+        const current = id ? links.find((link) => link.hash === `#${id}`) : undefined;
+        if (current && toc.scrollHeight > toc.clientHeight) {
+          current.scrollIntoView({ block: "nearest", inline: "nearest" });
+        }
+      };
+
+      const sync = () => {
+        let active = headings.find((heading) => visible.has(heading.id))?.id;
+        if (!active) {
+          for (const heading of headings) {
+            if (heading.getBoundingClientRect().top <= window.innerHeight * 0.25) {
+              active = heading.id;
+            }
+          }
+        }
+        setActive(active);
+      };
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) visible.add(entry.target.id);
+            else visible.delete(entry.target.id);
+          }
+          sync();
+        },
+        { rootMargin: "-20% 0px -65% 0px", threshold: 0 },
+      );
+
+      headings.forEach((heading) => observer.observe(heading));
+      sync();
+    }
+  }
+</script>

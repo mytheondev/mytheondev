@@ -1,12 +1,13 @@
 ---
-import { NAV_ITEMS } from "../lib/site";
+import { NAV_ITEMS, navHref } from "../lib/site";
 
 interface Props {
   home?: boolean;
   activeNav?: string;
+  titlePath?: string;
 }
 
-const { home = false, activeNav } = Astro.props;
+const { home = false, activeNav, titlePath } = Astro.props;
 ---
 
 <header
@@ -21,14 +22,15 @@ const { home = false, activeNav } = Astro.props;
   </div>
 
   <p class="min-w-0 flex-1 truncate text-xs text-muted md:text-sm">
-    <a href="/" class="text-ink hover:text-brand hover:decoration-brand">mytheon@dev</a> — zsh — 120×40
+    <a href="/" class="text-ink hover:text-brand hover:decoration-brand">mytheon@dev</a>
+    {titlePath ? `:${titlePath}` : " — zsh — 120×40"}
   </p>
 
   <nav class="hidden items-center gap-4 lg:flex" aria-label="Primary">
     {
       NAV_ITEMS.map((item) => (
         <a
-          href={home ? `#${item.id}` : `/#${item.id}`}
+          href={navHref(item.id, home)}
           data-nav-link={item.id}
           class:list={[
             "text-sm transition-colors hover:text-brand",

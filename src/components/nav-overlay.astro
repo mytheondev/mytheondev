@@ -1,5 +1,5 @@
 ---
-import { NAV_ITEMS } from "../lib/site";
+import { NAV_ITEMS, navHref } from "../lib/site";
 
 interface Props {
   home?: boolean;
@@ -20,7 +20,7 @@ const { home = false } = Astro.props;
     {
       NAV_ITEMS.map((item, index) => (
         <a
-          href={home ? `#${item.id}` : `/#${item.id}`}
+          href={navHref(item.id, home)}
           data-overlay-link
           class:list={[
             "animate-fade-in-up text-center text-3xl font-bold text-ink hover:text-brand",

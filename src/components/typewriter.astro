@@ -9,7 +9,7 @@ const { text, as: Tag = "h1", class: className = "" } = Astro.props;
 ---
 
 <Tag class:list={["inline", className]} data-typewriter={text}>
-  <span data-typewriter-text></span><span class="cursor-blink" aria-hidden="true"></span>
+  <span data-typewriter-text>{text}</span><span class="cursor-blink" aria-hidden="true"></span>
 </Tag>
 
 <script>
@@ -20,11 +20,7 @@ const { text, as: Tag = "h1", class: className = "" } = Astro.props;
     const full = node.dataset.typewriter ?? "";
     const target = node.querySelector<HTMLElement>("[data-typewriter-text]");
     if (!target) continue;
-
-    if (reduceMotion) {
-      target.textContent = full;
-      continue;
-    }
+    if (reduceMotion) continue;
 
     let index = 0;
     const tick = () => {

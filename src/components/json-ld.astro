@@ -1,15 +1,85 @@
 ---
 import { GITHUB_URL, LINKEDIN_URL, SITE_EMAIL, SITE_NAME, SITE_URL } from "../lib/site";
 
-const schema = {
-  "@context": "https://schema.org",
+interface Props {
+  type?: "website" | "article";
+  headline?: string;
+  description?: string;
+  url?: string;
+  publishedTime?: Date;
+  modifiedTime?: Date;
+  tags?: string[];
+}
+
+const {
+  type = "website",
+  headline,
+  description,
+  url,
+  publishedTime,
+  modifiedTime,
+  tags,
+} = Astro.props;
+
+const personId = `${SITE_URL}/#person`;
+
+const person = {
   "@type": "Person",
+  "@id": personId,
   name: SITE_NAME,
-  jobTitle: "Full Stack Engineer",
+  jobTitle: "Software Engineer",
   url: SITE_URL,
   email: SITE_EMAIL,
   sameAs: [GITHUB_URL, LINKEDIN_URL],
 };
+
+const schema =
+  type === "article" && headline && url && publishedTime
+    ? {
+        "@context": "https://schema.org",
+        "@graph": [
+          person,
+          {
+            "@type": "BlogPosting",
+            headline,
+            description,
+            url,
+            datePublished: publishedTime.toISOString(),
+            dateModified: (modifiedTime ?? publishedTime).toISOString(),
+            keywords: tags,
+            author: { "@id": personId },
+            publisher: { "@id": personId },
+            mainEntityOfPage: url,
+          },
+          {
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              {
+                "@type": "ListItem",
+                position: 1,
+                name: "Home",
+                item: SITE_URL,
+              },
+              {
+                "@type": "ListItem",
+                position: 2,
+                name: "Blog",
+                item: `${SITE_URL}/blog/`,
+              },
+              {
+                "@type": "ListItem",
+                position: 3,
+                name: headline,
+                item: url,
+              },
+            ],
+          },
+        ],
+      }
+    : {
+        "@context": "https://schema.org",
+        ...person,
+      };
 ---
 
 <script is:inline type="application/ld+json" set:html={JSON.stringify(schema)} />
