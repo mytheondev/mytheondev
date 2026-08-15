@@ -270,6 +270,35 @@
   @apply bg-transparent p-0;
 }
 
+.article-body table {
+  @apply mb-4 w-full border-collapse text-sm;
+}
+
+.article-body table th,
+.article-body table td {
+  @apply border border-white/10 px-3 py-2 text-left align-top wrap-break-word;
+}
+
+.article-body table th {
+  @apply font-semibold text-ink;
+}
+
+.article-body table td {
+  @apply text-muted;
+}
+
+.article-body a {
+  @apply text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand;
+}
+
+.article-body .mermaid {
+  @apply mb-4 overflow-x-auto rounded-lg border border-white/10 bg-surface p-4;
+}
+
+.article-body pre.mermaid {
+  @apply text-ink;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cursor-blink {
     animation: none;

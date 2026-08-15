@@ -3,6 +3,7 @@
 import mdx from "@astrojs/mdx";
 import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
+import mermaid from "astro-mermaid";
 import { defineConfig, fontProviders } from "astro/config";
 
 // https://astro.build/config
@@ -11,7 +12,7 @@ export default defineConfig({
     plugins: [tailwindcss()],
   },
   site: "https://www.mytheon.dev",
-  integrations: [mdx(), sitemap()],
+  integrations: [mermaid({ theme: "dark", autoTheme: false }), mdx(), sitemap()],
   fonts: [
     {
       provider: fontProviders.google(),
