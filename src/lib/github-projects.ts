@@ -21,6 +21,7 @@ const GITHUB_USER = "mytheondev";
 const UPDATED_WITHIN_MS = 60 * 24 * 60 * 60 * 1000;
 
 const FEATURED_REPOS = [
+  "env-trace",
   "culqi-nodejs",
   "tw-animations",
   "chrono-ms",
@@ -28,6 +29,15 @@ const FEATURED_REPOS = [
 ] as const;
 
 const FALLBACK_PROJECTS: Project[] = [
+  {
+    name: "env-trace",
+    description:
+      "Lightweight utility for tracking, validating, and debugging environment variable usage across your application.",
+    language: "TypeScript",
+    stars: 2,
+    url: `https://github.com/${GITHUB_USER}/env-trace`,
+    status: "updated",
+  },
   {
     name: "culqi-nodejs",
     description: "Culqi SDK for Node.js (zero runtime deps)",
