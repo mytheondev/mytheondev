@@ -4,6 +4,8 @@ description: "Logging is not observability. How transactionId, traceId, and W3C 
 pubDate: 2026-08-15
 tags: [Observability, Architecture, GCP]
 minutes: 18
+related:
+  - structured-logging-transaction-ids-nestjs
 ---
 
 The payment succeeded. The confirmation email never arrived. Three services wrote "done" or "failed" into three log buckets, and nobody can prove the same user request produced all three lines.
@@ -13,6 +15,8 @@ That is not a logging shortage. It is a missing execution identity.
 When an operation starts in System A and later calls System B and System C, you must be able to follow that same operation end to end and say exactly what happened in each component. More `console.log` lines will not do that. A shared context will.
 
 You do not need more logs. You need a reconstructable request.
+
+How to bind `transactionId` onto NestJS logs — and propagate it over HTTP and Pub/Sub without threading it through every method — is in [Structured logging in NestJS](/blog/structured-logging-transaction-ids-nestjs/).
 
 ## These identifiers are not the same thing
 

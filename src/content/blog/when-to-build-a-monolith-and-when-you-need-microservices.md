@@ -74,12 +74,14 @@ One artifact. One health check. One rollback. Continuous delivery is not a monol
 
 Compare the two calls:
 
-```text
-Module A → Function Call → Module B
+```mermaid
+flowchart LR
+    A["Module A"] -->|Function Call| B["Module B"]
 ```
 
-```text
-Service A → HTTP/gRPC → Service B
+```mermaid
+flowchart LR
+    A["Service A"] -->|HTTP/gRPC| B["Service B"]
 ```
 
 The first is a local jump. It fails if the process fails. It does not fail because DNS expired, the load balancer drained the wrong pool, TLS handshake timed out, or the other service sat at 99th-percentile latency. The second call is a remote procedure. Remote procedures are slow relative to in-process calls, and they can fail even when both codepaths are correct. Fowler treats that as the first cost of playing the distribution card, not as an advanced topic you get to later.
@@ -150,9 +152,9 @@ Microservices are a response to specific operational and organizational pressure
 ### Independent scaling
 
 ```text
-Orders Service      → 10 instances
-Payments Service    →  3 instances
-Catalog Service     → 20 instances
+Orders Service      --> 10 instances
+Payments Service    -->  3 instances
+Catalog Service     --> 20 instances
 ```
 
 Catalog takes the browse traffic. Payments takes the checkout traffic. Those curves are not the same. Scaling the whole monolith wastes capacity on the quiet parts and still may not give the hot path enough headroom if that path is trapped behind a shared bottleneck. Independent services let you put money on the component that is actually hot.
@@ -163,8 +165,6 @@ This is **scalability**, not **performance**. Splitting a call into three networ
 
 ```text
 Deploy Payments Service v2
-
-        ↓
 
 Orders Service continues running
 Catalog Service continues running
@@ -217,8 +217,9 @@ Microservices turn local problems into distributed ones. That is the premium Fow
 
 A call that used to be this:
 
-```text
-A → B
+```mermaid
+flowchart LR
+    A --> B
 ```
 
 can now fail because of a timeout, a dropped packet, DNS, TLS, a load balancer, a saturated instance, or the other service simply not being there. Inside a monolith, `A → B` is a function call. You still have bugs. You do not have a new class of bugs named after the network.
@@ -331,9 +332,9 @@ A few requests per second, or a few hundred, on a predictable shape of traffic. 
 ### Case 1 — Uneven scale
 
 ```text
-Catalog → 100 requests/sec
-Orders  →  20 requests/sec
-Reports →   2 requests/sec
+Catalog --> 100 requests/sec
+Orders  -->  20 requests/sec
+Reports -->   2 requests/sec
 ```
 
 The catalog is the product. Reports is a sidecar. Scaling them together is a cost and a risk. Extract the hot, independently cacheable, independently owned piece first — not the whole map.
@@ -493,17 +494,17 @@ Fowler called the eagerness _Microservice Envy_. The majority of systems, in his
 
 A checklist for when a distributed architecture is actually on the table:
 
-- [ ] A component has a demonstrated need for independent scaling.
-- [ ] Independent teams own separate domains and already ship on different clocks.
-- [ ] Bounded contexts are stable enough to become contracts.
-- [ ] You need independent deployment for a concrete release-train reason.
-- [ ] Availability or isolation requirements differ by capability.
-- [ ] A failure in one area is currently taking down something more important.
-- [ ] Volume concentrates in a specific component, not in "the app."
-- [ ] A different technology is required, not merely desired.
-- [ ] The organization can operate a distributed system on a bad Thursday.
-- [ ] Observability is already good enough to follow one request today.
-- [ ] CI/CD can ship one artifact safely. It will need to ship many.
+- A component has a demonstrated need for independent scaling.
+- Independent teams own separate domains and already ship on different clocks.
+- Bounded contexts are stable enough to become contracts.
+- You need independent deployment for a concrete release-train reason.
+- Availability or isolation requirements differ by capability.
+- A failure in one area is currently taking down something more important.
+- Volume concentrates in a specific component, not in "the app."
+- A different technology is required, not merely desired.
+- The organization can operate a distributed system on a bad Thursday.
+- Observability is already good enough to follow one request today.
+- CI/CD can ship one artifact safely. It will need to ship many.
 
 One checked box is a smell, not a mandate. Three checked boxes and a missing observability story is a reason to stop. AWS is explicit that even when you start with a monolith, you should keep it modular enough to evolve. That is the prerequisite, not the afterthought.
 
