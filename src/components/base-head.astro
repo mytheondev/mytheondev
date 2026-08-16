@@ -2,6 +2,8 @@
 import "../styles/global.css";
 import type { ImageMetadata } from "astro";
 import { Font } from "astro:assets";
+import Analytics from "@vercel/analytics/astro";
+import SpeedInsights from "@vercel/speed-insights/astro";
 import OgImage from "../assets/og-image.png";
 import { SITE_TITLE } from "../lib/site";
 
@@ -76,3 +78,6 @@ const imageURL = new URL(image.src, Astro.site);
     </>
   )
 }
+
+<Analytics />
+<SpeedInsights />
