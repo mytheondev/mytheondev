@@ -12,6 +12,22 @@
       heading.append(anchor);
     }
 
+    const siteHost = window.location.hostname;
+    const links = root.querySelectorAll<HTMLAnchorElement>("a[href]");
+    for (const link of links) {
+      if (link.classList.contains("heading-anchor")) continue;
+      let url: URL;
+      try {
+        url = new URL(link.href, window.location.origin);
+      } catch {
+        continue;
+      }
+      if (url.protocol !== "http:" && url.protocol !== "https:") continue;
+      if (url.hostname === siteHost) continue;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+    }
+
     const tables = root.querySelectorAll<HTMLTableElement>("table");
     for (const table of tables) {
       if (table.parentElement?.classList.contains("table-wrap")) continue;

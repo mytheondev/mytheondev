@@ -11,6 +11,7 @@ export const INSTAGRAM_URL = "https://www.instagram.com/mytheon.dev";
 
 export const NAV_ITEMS = [
   { id: "about", label: "about", command: "$ about" },
+  { id: "stack", label: "stack", command: "$ stack" },
   { id: "projects", label: "projects", command: "$ projects" },
   { id: "experience", label: "experience", command: "$ experience" },
   { id: "github", label: "github", command: "$ github" },

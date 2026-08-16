@@ -22,9 +22,17 @@ const color = LANGUAGE_COLORS[project.language] ?? "#adaeb0";
   <p class="mt-3 flex-1 text-sm leading-relaxed text-muted">
     {project.description}
   </p>
-  <p class="mt-4 flex items-center gap-2 text-xs text-muted">
-    <span class="size-2.5 rounded-full" style={`background-color: ${color}`} aria-hidden="true"
-    ></span>
-    {project.language}
+  <p class="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted">
+    <span class="inline-flex items-center gap-2">
+      <span class="size-2.5 rounded-full" style={`background-color: ${color}`} aria-hidden="true"
+      ></span>
+      {project.language}
+    </span>
+    <span class="rounded-md border border-white/10 px-2 py-0.5">{project.status}</span>
+    {
+      project.version && (
+        <span class="rounded-md border border-white/10 px-2 py-0.5">{project.version}</span>
+      )
+    }
   </p>
 </a>

@@ -47,9 +47,14 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry py-16";
       I still get a kick out of turning messy problems into systems people can actually use. APIs,
       data, the interface someone touches — I want the whole path to feel intentional, not bolted
       on. Architecture and clean code are how I stay honest when things get heavy. I write
-      production notes on APIs, cloud, and architecture. Right now that energy goes into:
+      production notes on APIs, cloud, and architecture.
     </p>
-    <ul class="mt-5 flex flex-wrap gap-2">
+  </section>
+
+  <section id="stack" class={reveal}>
+    <SectionPrompt command="~ ls stack/" comment="languages, runtimes, and the platforms I use" />
+    <h2 class="mb-6 text-xl font-semibold">Stack</h2>
+    <ul class="flex flex-wrap gap-2">
       {
         stack.map((item) => (
           <li class="rounded-md border border-white/10 px-2.5 py-1 text-xs text-ink">{item}</li>

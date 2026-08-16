@@ -1,5 +1,5 @@
 ---
-title: "traceId is not transactionId: following a request across microservices"
+title: "A traceId is not a transactionId: following a request across microservices"
 description: "Logging is not observability. How transactionId, traceId, and W3C Trace Context let you reconstruct a request across services — on Cloud Run, AWS, and Azure."
 pubDate: 2026-08-15
 tags: [Observability, Architecture, GCP]
@@ -137,11 +137,12 @@ The `spanId` values differ. System A owns the root span. System B creates a chil
 
 Now the provider times out.
 
-```text
-System A → System B → System C
-                         ✕
-                   Notification API
-                      timeout
+```mermaid
+flowchart TD
+  SystemA[System A] --> SystemB[System B]
+  SystemB --> SystemC[System C]
+  SystemC --> Notify[Notification API]
+  Notify --> Timeout[timeout]
 ```
 
 An engineer searches `traceId = abc123` and reconstructs the run:
@@ -430,18 +431,13 @@ traceId = 4bf92f3577b34da6a3ce929d0e0e4736
 transactionId = TX-982341
 ```
 
-```text
-API Gateway
-    ↓
-Payment Service
-    ↓
-Database
-    ↓
-Notification Service
-    ↓
-External Provider
-          ↓
-       TIMEOUT
+```mermaid
+flowchart TD
+  Gateway[API Gateway] --> Payments[Payment Service]
+  Payments --> Database[(Database)]
+  Database --> Notify[Notification Service]
+  Notify --> Provider[External Provider]
+  Provider --> Timeout[TIMEOUT]
 ```
 
 The payment spans are clean. The provider span is a 10-second timeout. The `transactionId` lets support talk to the customer in business language. The `traceId` lets engineering talk to the vendor with a causal chain, not a screenshot of "Notification failed."
@@ -458,7 +454,7 @@ A distributed operation is a graph. Logs are nodes. Traces are the edges. Metric
 
 After that, adding another log line is cheap. Reconstructing the request is the actual design.
 
-## Official sources
+## Sources
 
 - [W3C Trace Context](https://www.w3.org/TR/trace-context-1/)
 - [OpenTelemetry traces](https://opentelemetry.io/docs/concepts/signals/traces/)

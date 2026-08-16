@@ -27,25 +27,15 @@ The architecture should not be chosen because a conference talk made it look ine
 
 A monolith is a system delivered as **one deployable unit**. User management, orders, payments, and inventory can live in the same codebase, the same process, and usually the same release. "Monolith" describes the deployment and process boundary. It does not describe code quality.
 
-```text
-                    ┌─────────────────────────┐
-                    │       MONOLITH          │
-                    │                         │
-                    │  ┌───────────────────┐  │
-                    │  │ Users             │  │
-                    │  ├───────────────────┤  │
-                    │  │ Orders            │  │
-                    │  ├───────────────────┤  │
-                    │  │ Payments          │  │
-                    │  ├───────────────────┤  │
-                    │  │ Inventory         │  │
-                    │  └───────────────────┘  │
-                    │                         │
-                    └───────────┬─────────────┘
-                                │
-                         ┌──────▼──────┐
-                         │  Database   │
-                         └─────────────┘
+```mermaid
+flowchart TD
+  subgraph Monolith
+    Users
+    Orders
+    Payments
+    Inventory
+  end
+  Monolith --> Database[(Database)]
 ```
 
 Inside that process, modules talk with function calls. They share memory, a runtime, and typically one primary database. A request enters a controller, walks through services and repositories, and either commits or rolls back in one transaction. There is no network hop between "orders" and "payments" unless you put one there.
@@ -130,22 +120,14 @@ If you extract services from a Big Ball of Mud without first drawing those bound
 
 James Lewis and Martin Fowler described microservices as independently deployable services organized around business capabilities, communicating over the network, and usually owning their own data. Microsoft's Azure Architecture Center uses the same shape: small, autonomous services, each implementing a single business capability inside a bounded context, deployed independently, talking through APIs or events.
 
-```text
-                  ┌──────────────┐
-                  │   API /      │
-                  │   Gateway    │
-                  └──────┬───────┘
-                         │
-          ┌──────────────┼──────────────┐
-          │              │              │
-          ▼              ▼              ▼
-   ┌────────────┐ ┌────────────┐ ┌────────────┐
-   │ Users      │ │ Orders     │ │ Payments   │
-   │ Service    │ │ Service    │ │ Service    │
-   └─────┬──────┘ └─────┬──────┘ └─────┬──────┘
-         │              │              │
-         ▼              ▼              ▼
-      DB Users       DB Orders       DB Payments
+```mermaid
+flowchart TD
+  Gateway[API / Gateway] --> UsersSvc[Users Service]
+  Gateway --> OrdersSvc[Orders Service]
+  Gateway --> PaymentsSvc[Payments Service]
+  UsersSvc --> DbUsers[(DB Users)]
+  OrdersSvc --> DbOrders[(DB Orders)]
+  PaymentsSvc --> DbPayments[(DB Payments)]
 ```
 
 This diagram is conceptual. **A database per service is a frequent practice for reducing coupling. It is not a law.** What the style actually requires is that other services do not reach into your tables. If two "services" share a schema and deploy on a coordinated schedule, you have cut a monolith into processes without buying independence.
@@ -251,56 +233,36 @@ Once a request leaves the process, logs without a shared identity are three opin
 - distributed tracing
 - metrics that name the service, the route, and the dependency
 
-```text
-Request
-   │
-   │ transactionId=TX-123
-   ▼
-API Gateway
-   │
-   ├── transactionId=TX-123
-   ▼
-Orders Service
-   │
-   ├── transactionId=TX-123
-   ▼
-Payments Service
-   │
-   ├── transactionId=TX-123
-   ▼
-External Bank API
+```mermaid
+flowchart TD
+  Request["Request TX-123"] --> Gateway[API Gateway]
+  Gateway --> Orders[Orders Service]
+  Orders --> Payments[Payments Service]
+  Payments --> Bank[External Bank API]
 ```
 
 Those identifiers let you reconstruct the path. They are not the same identifier. A checkout can keep `TX-123` across a retry that opens a second trace. If your team is about to split a process, read [traceId is not transactionId](/blog/traceid-is-not-transactionid/) before you invent a house header. Azure lists centralized logging, OpenTelemetry, and distributed tracing as part of the architecture, not as optional polish.
 
 ### Debugging
 
-```text
-Monolith
-
-Request
-  ↓
-Controller
-  ↓
-Service
-  ↓
-Repository
+```mermaid
+flowchart TD
+  subgraph monolith [Monolith]
+    Req[Request] --> Controller
+    Controller --> Service
+    Service --> Repository
+  end
 ```
 
-```text
-Microservices
-
-Client
-  ↓
-Gateway
-  ↓
-Orders Service
-  ↓
-Message Broker
-  ↓
-Payments Service
-  ↓
-External API
+```mermaid
+flowchart TD
+  subgraph microservices [Microservices]
+    Client --> Gateway
+    Gateway --> Orders[Orders Service]
+    Orders --> Broker[Message Broker]
+    Broker --> Payments[Payments Service]
+    Payments --> ExtAPI[External API]
+  end
 ```
 
 The first path fits in one debugger. The second path is a causal graph. Without traces, you are grepping by timestamp and hoping clocks agree. Netflix's early AWS lesson was the same phenomenon at the network layer: chatty APIs that were fine in a fast datacenter became a design defect once latency varied.
@@ -309,14 +271,11 @@ The first path fits in one debugger. The second path is a causal graph. Without 
 
 A purchase is no longer one transaction:
 
-```text
-Order Created
-      ↓
-Payment
-      ↓
-Inventory
-      ↓
-Shipping
+```mermaid
+flowchart TD
+  Created[Order Created] --> Payment
+  Payment --> Inventory
+  Inventory --> Shipping
 ```
 
 Payment succeeds. Inventory fails. You now have money and no stock, or you retry inventory and decrement twice. Distributed transactions are possible and usually the wrong tool. The usual design is **eventual consistency**, a **saga** that can compensate, and **idempotent** handlers that survive **duplicate messages**. At-least-once delivery is the common broker guarantee. Exactly-once business effects are your problem.
@@ -436,16 +395,12 @@ A supporting note from Amazon, not a second case study: Werner Vogels, writing a
 
 Start here. The domain is unfinished. The team is one team. Checkout, catalog, and payments share a transaction more often than they don't.
 
-```text
-                 E-Commerce
-                     │
-              ┌──────▼──────┐
-              │  Monolith   │
-              └──────┬──────┘
-                     │
-       ┌─────────────┼──────────────┐
-       ▼             ▼              ▼
-    Orders        Payments       Catalog
+```mermaid
+flowchart TD
+  Shop[E-Commerce] --> Mono[Monolith]
+  Mono --> Orders
+  Mono --> Payments
+  Mono --> Catalog
 ```
 
 This is a good decision. You can ship a cart. You can write one integration test for "pay and decrement stock." You can change the meaning of "order" without a versioned API.
@@ -462,13 +417,12 @@ Catalog is read-heavy, cacheable, and owned by a merchandising-facing team that 
 
 **Problem:** catalog load and catalog change rate dominate. **Constraint:** you cannot scale or release catalog without dragging payments. **Alternatives:** scale the whole monolith; extract catalog; extract everything. **Trade-offs:** extraction adds a network hop and a cache-invalidation problem; doing nothing keeps coupling the hot path to the careful path. **Decision:** extract catalog only. **Justification:** it is the one capability with demonstrated independent scale, independent cadence, and a boundary you can already point to in the modular monolith.
 
-```text
-Monolith
-   │
-   ├── Orders
-   ├── Payments
-   │
-   └── Catalog → Catalog Service
+```mermaid
+flowchart TD
+  Mono[Monolith] --> Orders
+  Mono --> Payments
+  Mono --> Catalog
+  Catalog --> CatalogSvc[Catalog Service]
 ```
 
 You now have a hybrid. That is not an incomplete migration. It is an architecture that spent complexity where a metric appeared. Orders and payments can stay together until a second metric appears.
@@ -494,52 +448,6 @@ The counter-argument Fowler records is real: starting with services trains the o
 ## A decision tree
 
 Use this as a filter, not as a verdict.
-
-```text
-Is the application small?
-        │
-       Yes
-        ↓
-Is the team small?
-        │
-       Yes
-        ↓
-Do you need independent scaling?
-        │
-       No
-        ↓
-MODULAR MONOLITH
-```
-
-Keep walking when the answers change.
-
-```text
-Is the application small? ──No──► Do independent teams own
-        │                         separate, stable domains?
-       Yes                                │
-        ↓                                Yes
-Is the team small?                        ↓
-        │                         Are availability or deploy
-       No                         cadences actually different?
-        ↓                                │
-Do you need independent                 Yes
-scaling or isolation?                    ↓
-        │                         Can you operate a distributed
-       Yes                        system (CI/CD, traces, on-call)?
-        ↓                                │
-Can you operate a                       No → stay modular;
-distributed system?                          fix boundaries first
-        │
-       No → modular monolith,
-            extract later if the
-            metric is still there
-        │
-       Yes
-        ↓
-Extract the specific service
-that has the metric.
-Do not "go microservices."
-```
 
 ```mermaid
 flowchart TD
@@ -603,16 +511,12 @@ One checked box is a smell, not a mandate. Three checked boxes and a missing obs
 
 Architectures are allowed to change. Vogels' rule of thumb is to revisit the design with every order of magnitude of growth. Shopify described the same idea as an evolutionary scale: monolith, then modular monolith, then service-oriented splits, each separated by a period of pain that tells you the current shape has been outgrown.
 
-```text
-Monolith
-   ↓
-Modular monolith
-   ↓
-Domain modularization
-   ↓
-Extract specific services
-   ↓
-Distributed architecture
+```mermaid
+flowchart TD
+  Mono[Monolith] --> Modular[Modular monolith]
+  Modular --> Domains[Domain modularization]
+  Domains --> Extract[Extract specific services]
+  Extract --> Distributed[Distributed architecture]
 ```
 
 The migration pattern with a name is the **Strangler Fig**. Fowler's metaphor is a vine that grows around a host tree and eventually replaces it. In software: add seams, build the new behavior beside the old, route a slice of traffic, repeat. You do not announce a two-year rewrite and hope the business pauses. AWS's reliability guidance recommends this pattern for decomposing a monolith, including transitional architecture that you will later delete. That transitional layer is not waste. It is how you keep shipping.

@@ -393,7 +393,7 @@ If any step is a no, stop. HTTP or Cloud Tasks is probably the smaller design.
 
 Before you add Pub/Sub to the architecture, what problem are you trying to solve?
 
-## Official sources
+## Sources
 
 - [What is Pub/Sub?](https://docs.cloud.google.com/pubsub/docs/overview)
 - [Overview of the Pub/Sub service](https://docs.cloud.google.com/pubsub/docs/pubsub-basics)

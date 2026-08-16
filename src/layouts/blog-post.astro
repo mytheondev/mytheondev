@@ -91,13 +91,14 @@ const hasToc = showToc && toc.length > 0;
           (older || newer || related.length > 0) && (
             <nav class="mt-12 max-w-[68ch] border-t border-white/5 pt-6" aria-label="More articles">
               {(older || newer) && (
-                <div class="flex flex-col gap-3 sm:flex-row sm:justify-between">
+                <div class="grid gap-3 sm:grid-cols-2">
                   {older ? (
                     <a
                       href={`/blog/${older.id}/`}
-                      class="text-sm text-muted underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
+                      class="card-hover rounded-lg border border-white/10 p-4"
                     >
-                      ← {older.data.title}
+                      <p class="text-xs text-muted">Previous</p>
+                      <p class="mt-1 text-sm text-ink">{older.data.title}</p>
                     </a>
                   ) : (
                     <span />
@@ -105,9 +106,10 @@ const hasToc = showToc && toc.length > 0;
                   {newer && (
                     <a
                       href={`/blog/${newer.id}/`}
-                      class="text-sm text-muted underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand sm:text-right"
+                      class="card-hover rounded-lg border border-white/10 p-4 sm:text-right"
                     >
-                      {newer.data.title} →
+                      <p class="text-xs text-muted">Next</p>
+                      <p class="mt-1 text-sm text-ink">{newer.data.title}</p>
                     </a>
                   )}
                 </div>
