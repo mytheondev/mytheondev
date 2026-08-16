@@ -1,0 +1,121 @@
+/* Mermaid-only. Tokens come from @theme in global.css.
+   Selectors must stay class-based — never target #mermaid-xxxxx. */
+
+.article-body .mermaid-viewport,
+.article-body .mermaid {
+  margin-bottom: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background-color: var(--color-surface);
+}
+
+.article-body .mermaid-viewport {
+  position: relative;
+  overflow: hidden;
+  padding: 1rem;
+  cursor: grab;
+  touch-action: none;
+}
+
+.article-body .mermaid-viewport:active {
+  cursor: grabbing;
+}
+
+.article-body .mermaid-viewport .mermaid {
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.article-body pre.mermaid {
+  display: block;
+  margin-top: 0;
+  min-height: 0;
+  color: var(--color-ink);
+}
+
+.article-body pre.mermaid:not([data-processed]) {
+  min-height: 8rem;
+  background: color-mix(in oklab, var(--color-surface-2) 80%, var(--color-surface));
+  animation: none;
+}
+
+.article-body pre.mermaid[data-processed] {
+  background-color: transparent;
+  min-height: 0;
+}
+
+.article-body .mermaid svg {
+  display: block;
+  max-width: none;
+  height: auto;
+  margin-inline: auto;
+  transform-origin: 0 0;
+}
+
+.article-body .mermaid foreignObject,
+.article-body .mermaid .label,
+.article-body .mermaid .nodeLabel,
+.article-body .mermaid .edgeLabel,
+.article-body .mermaid .cluster,
+.article-body .mermaid .cluster-label,
+.article-body .mermaid .commit-label,
+.article-body .mermaid .branch-label,
+.article-body .mermaid .tag-label {
+  overflow: visible;
+}
+
+.article-body .mermaid .cluster rect {
+  stroke-dasharray: 6 4;
+}
+
+.article-body .mermaid .marker {
+  fill: var(--color-muted);
+  stroke: var(--color-muted);
+}
+
+.article-body .mermaid-controls {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 0.375rem;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: var(--color-surface-2);
+}
+
+.article-body .mermaid-controls button {
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.article-body .mermaid-controls button + button {
+  border-top: 1px solid rgb(255 255 255 / 0.1);
+}
+
+.article-body .mermaid-controls button:hover,
+.article-body .mermaid-controls button:focus-visible {
+  color: var(--color-brand);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .article-body pre.mermaid:not([data-processed]) {
+    animation: none;
+  }
+
+  .article-body .mermaid svg {
+    transition: none;
+  }
+}

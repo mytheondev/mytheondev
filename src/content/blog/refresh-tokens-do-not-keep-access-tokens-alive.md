@@ -551,16 +551,16 @@ Skip the store and you have a long-lived JWT with extra steps. Skip HTTPS and th
 A realistic day in a SaaS app with a ten-minute access token:
 
 ```text
-09:00 → login
-09:00 → access token issued, refresh token issued
-09:04 → GET /invoices → 200
-09:05 → access token expires
-09:05 → user clicks "Export"
-09:05 → API responds 401
-09:05 → frontend runs POST /auth/refresh
-09:05 → backend rotates the refresh token, issues a new pair
-09:05 → frontend retries Export
-09:05 → API responds 200
+09:00 --> login
+09:00 --> access token issued, refresh token issued
+09:04 --> GET /invoices --> 200
+09:05 --> access token expires
+09:05 --> user clicks "Export"
+09:05 --> API responds 401
+09:05 --> frontend runs POST /auth/refresh
+09:05 --> backend rotates the refresh token, issues a new pair
+09:05 --> frontend retries Export
+09:05 --> API responds 200
 ```
 
 The user clicked a button. The network tab shows an extra `401` and a `POST /auth/refresh` if they look. The product does not ask for a password. That is the reason the pattern exists: **the session can continue while the access credentials stay short-lived.**

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://mytheon.dev/sitemap-index.xml
+Sitemap: https://www.mytheon.dev/sitemap-index.xml

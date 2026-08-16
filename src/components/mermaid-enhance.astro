@@ -1,0 +1,166 @@
+<script>
+  import mermaid from "mermaid";
+  import { mermaidClientConfig } from "../lib/mermaid-theme";
+
+  const MIN_SCALE = 0.5;
+  const MAX_SCALE = 3;
+  const SCALE_STEP = 0.25;
+
+  const root = document.querySelector(".article-body");
+
+  function clamp(value: number, min: number, max: number) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function waitForProcessed(pre: HTMLPreElement) {
+    if (pre.hasAttribute("data-processed")) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      const observer = new MutationObserver(() => {
+        if (pre.hasAttribute("data-processed")) {
+          observer.disconnect();
+          resolve();
+        }
+      });
+      observer.observe(pre, { attributes: true, attributeFilter: ["data-processed"] });
+      window.setTimeout(() => {
+        observer.disconnect();
+        resolve();
+      }, 8000);
+    });
+  }
+
+  async function rerender(pre: HTMLPreElement) {
+    const definition = pre.getAttribute("data-diagram") || pre.textContent || "";
+    if (!definition.trim()) return;
+
+    const id = `mermaid-r-${Math.random().toString(36).slice(2, 11)}`;
+    const { svg } = await mermaid.render(id, definition);
+    pre.innerHTML = svg;
+    pre.setAttribute("data-processed", "true");
+    if (!pre.hasAttribute("data-diagram")) {
+      pre.setAttribute("data-diagram", definition);
+    }
+  }
+
+  function enhanceViewport(pre: HTMLPreElement) {
+    if (pre.parentElement?.classList.contains("mermaid-viewport")) return;
+
+    const svg = pre.querySelector("svg");
+    if (!(svg instanceof SVGElement)) return;
+
+    const viewport = document.createElement("div");
+    viewport.className = "mermaid-viewport";
+    pre.replaceWith(viewport);
+    viewport.append(pre);
+
+    const controls = document.createElement("div");
+    controls.className = "mermaid-controls";
+    controls.setAttribute("role", "group");
+    controls.setAttribute("aria-label", "Diagram zoom");
+
+    const zoomIn = document.createElement("button");
+    zoomIn.type = "button";
+    zoomIn.textContent = "+";
+    zoomIn.setAttribute("aria-label", "Zoom in");
+
+    const zoomOut = document.createElement("button");
+    zoomOut.type = "button";
+    zoomOut.textContent = "−";
+    zoomOut.setAttribute("aria-label", "Zoom out");
+
+    controls.append(zoomIn, zoomOut);
+    viewport.append(controls);
+
+    let scale = 1;
+    let tx = 0;
+    let ty = 0;
+    let dragging = false;
+    let originX = 0;
+    let originY = 0;
+    let originTx = 0;
+    let originTy = 0;
+
+    const apply = () => {
+      svg.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+    };
+
+    const zoomBy = (delta: number, cx: number, cy: number) => {
+      const next = clamp(scale + delta, MIN_SCALE, MAX_SCALE);
+      if (next === scale) return;
+      const k = next / scale;
+      tx = cx - k * (cx - tx);
+      ty = cy - k * (cy - ty);
+      scale = next;
+      apply();
+    };
+
+    zoomIn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const rect = viewport.getBoundingClientRect();
+      zoomBy(SCALE_STEP, rect.width / 2, rect.height / 2);
+    });
+
+    zoomOut.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const rect = viewport.getBoundingClientRect();
+      zoomBy(-SCALE_STEP, rect.width / 2, rect.height / 2);
+    });
+
+    viewport.addEventListener(
+      "wheel",
+      (event) => {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        const rect = viewport.getBoundingClientRect();
+        const delta = event.deltaY < 0 ? SCALE_STEP : -SCALE_STEP;
+        zoomBy(delta, event.clientX - rect.left, event.clientY - rect.top);
+      },
+      { passive: false },
+    );
+
+    viewport.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      if (event.target instanceof Element && event.target.closest(".mermaid-controls")) return;
+      dragging = true;
+      originX = event.clientX;
+      originY = event.clientY;
+      originTx = tx;
+      originTy = ty;
+      viewport.setPointerCapture(event.pointerId);
+    });
+
+    viewport.addEventListener("pointermove", (event) => {
+      if (!dragging) return;
+      tx = originTx + (event.clientX - originX);
+      ty = originTy + (event.clientY - originY);
+      apply();
+    });
+
+    const stopDrag = () => {
+      dragging = false;
+    };
+
+    viewport.addEventListener("pointerup", stopDrag);
+    viewport.addEventListener("pointercancel", stopDrag);
+  }
+
+  if (root instanceof HTMLElement) {
+    const diagrams = [...root.querySelectorAll<HTMLPreElement>("pre.mermaid")];
+
+    if (diagrams.length > 0) {
+      void (async () => {
+        await document.fonts.ready;
+        await Promise.all(diagrams.map((pre) => waitForProcessed(pre)));
+        mermaid.initialize(mermaidClientConfig);
+        for (const pre of diagrams) {
+          try {
+            await rerender(pre);
+          } catch {
+            // Keep the first astro-mermaid render if a diagram fails.
+          }
+          enhanceViewport(pre);
+        }
+      })();
+    }
+  }
+</script>

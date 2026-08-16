@@ -38,6 +38,7 @@ const {
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? SITE_URL).href;
+const imageURL = image ? new URL(image.src, Astro.site ?? SITE_URL).href : undefined;
 ---
 
 <!doctype html>
@@ -56,6 +57,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? SITE_URL).href;
       headline={headline ?? title}
       description={description}
       url={canonicalURL}
+      image={imageURL}
       publishedTime={publishedTime}
       modifiedTime={modifiedTime}
       tags={articleTags}

@@ -5,6 +5,7 @@ import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 import mermaid from "astro-mermaid";
 import { defineConfig, fontProviders } from "astro/config";
+import { mermaidFontFamily, mermaidThemeVariables } from "./src/lib/mermaid-theme";
 
 // https://astro.build/config
 export default defineConfig({
@@ -12,7 +13,25 @@ export default defineConfig({
     plugins: [tailwindcss()],
   },
   site: "https://www.mytheon.dev",
-  integrations: [mermaid({ theme: "dark", autoTheme: false }), mdx(), sitemap()],
+  markdown: {
+    shikiConfig: {
+      theme: "github-dark-default",
+      wrap: false,
+    },
+  },
+  integrations: [
+    mermaid({
+      theme: "base",
+      autoTheme: false,
+      mermaidConfig: {
+        htmlLabels: true,
+        fontFamily: mermaidFontFamily,
+        themeVariables: mermaidThemeVariables,
+      },
+    }),
+    mdx(),
+    sitemap(),
+  ],
   fonts: [
     {
       provider: fontProviders.google(),

@@ -919,16 +919,16 @@ Wire a `ValidationPipe` and a guard that actually checks the bearer token. The d
 
 ## Checklist
 
-- [ ] Public operations appear in the OpenAPI document.
-- [ ] Each operation documents its request and its success response.
-- [ ] HTTP status codes match what the handler and filters actually return.
-- [ ] Examples are payloads the API accepts.
-- [ ] Authentication schemes are declared and attached to protected operations.
-- [ ] DTO fields are visible (`@ApiProperty` or the CLI plugin) and stay aligned with `class-validator`.
-- [ ] Names are consistent across create, update, and response schemas.
-- [ ] Error responses that clients must handle are documented.
-- [ ] Swagger UI and raw documents are not exposed in production without a decision.
-- [ ] The document is generated in CI and reviewed when the contract changes.
+- Public operations appear in the OpenAPI document.
+- Each operation documents its request and its success response.
+- HTTP status codes match what the handler and filters actually return.
+- Examples are payloads the API accepts.
+- Authentication schemes are declared and attached to protected operations.
+- DTO fields are visible (`@ApiProperty` or the CLI plugin) and stay aligned with `class-validator`.
+- Names are consistent across create, update, and response schemas.
+- Error responses that clients must handle are documented.
+- Swagger UI and raw documents are not exposed in production without a decision.
+- The document is generated in CI and reviewed when the contract changes.
 
 ## The document is code
 

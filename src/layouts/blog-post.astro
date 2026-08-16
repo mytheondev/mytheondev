@@ -2,10 +2,12 @@
 import type { CollectionEntry } from "astro:content";
 import type { MarkdownHeading } from "astro";
 import ArticleEnhance from "../components/article-enhance.astro";
+import MermaidEnhance from "../components/mermaid-enhance.astro";
 import ArticleToc from "../components/article-toc.astro";
 import FormattedDate from "../components/formatted-date.astro";
 import TagList from "../components/tag-list.astro";
 import { datesDiffer, slugFromId, tocHeadings, type BlogPost } from "../lib/blog";
+import { ogImageForSlug } from "../lib/og";
 import Layout from "./terminal.astro";
 
 interface Props {
@@ -31,6 +33,7 @@ const hasToc = showToc && toc.length > 0;
   title={pageTitle}
   headline={title}
   description={description}
+  image={ogImageForSlug(slug)}
   type="article"
   activeNav="blog"
   titlePath={`~/blog/${slug}`}
@@ -147,4 +150,5 @@ const hasToc = showToc && toc.length > 0;
     </div>
   </article>
   <ArticleEnhance />
+  <MermaidEnhance />
 </Layout>

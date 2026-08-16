@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animations";
+@import "./mermaid.css";
 
 @theme {
   --color-brand: #e0ed34;
@@ -17,7 +18,34 @@
 
 @layer base {
   html {
+    color-scheme: dark;
     scroll-behavior: smooth;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-muted) var(--color-surface-2);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-muted) var(--color-surface-2);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-surface-2);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-muted) 70%, var(--color-surface-2));
+    border-radius: 9999px;
+    border: 2px solid var(--color-surface-2);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-muted);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -299,7 +327,7 @@
 }
 
 .article-body blockquote {
-  @apply mb-4 border-l-2 border-brand/40 pl-4 text-muted italic;
+  @apply mb-4 border-l-4 border-brand/40 pl-4 text-muted italic;
 }
 
 .article-body .table-wrap {
@@ -320,7 +348,7 @@
 }
 
 .article-body .code-block pre {
-  @apply mb-0 rounded-none border-0;
+  @apply mb-0 overflow-x-auto rounded-none border-0;
 }
 
 .article-body .code-block-meta {
@@ -362,14 +390,6 @@
 
 .article-body a {
   @apply text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand;
-}
-
-.article-body .mermaid {
-  @apply mb-4 overflow-x-auto rounded-lg border border-white/10 bg-surface p-4;
-}
-
-.article-body pre.mermaid {
-  @apply text-ink;
 }
 
 .article-toc-link {

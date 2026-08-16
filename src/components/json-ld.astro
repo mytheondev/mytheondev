@@ -6,6 +6,7 @@ interface Props {
   headline?: string;
   description?: string;
   url?: string;
+  image?: string;
   publishedTime?: Date;
   modifiedTime?: Date;
   tags?: string[];
@@ -16,6 +17,7 @@ const {
   headline,
   description,
   url,
+  image,
   publishedTime,
   modifiedTime,
   tags,
@@ -44,6 +46,7 @@ const schema =
             headline,
             description,
             url,
+            image,
             datePublished: publishedTime.toISOString(),
             dateModified: (modifiedTime ?? publishedTime).toISOString(),
             keywords: tags,
