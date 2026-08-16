@@ -36,7 +36,7 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry py-16";
 
 <Layout title={SITE_TITLE} description={SITE_DESCRIPTION} home>
   <section id="about">
-    <SectionPrompt command="~ whoami" comment="identity dump — name, role, and what I build" />
+    <SectionPrompt command="~ whoami" comment="Identity dump — name, role, and what I build" />
     <p class="text-sm text-muted">Hi! I'm a</p>
     <Typewriter
       text="Software Engineer"
@@ -52,7 +52,7 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry py-16";
   </section>
 
   <section id="stack" class={reveal}>
-    <SectionPrompt command="~ ls stack/" comment="languages, runtimes, and the platforms I use" />
+    <SectionPrompt command="~ ls stack/" comment="Languages, runtimes, and the platforms I use" />
     <h2 class="mb-6 text-xl font-semibold">Stack</h2>
     <ul class="flex flex-wrap gap-2">
       {
@@ -66,7 +66,7 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry py-16";
   <section id="projects" class={reveal}>
     <SectionPrompt
       command="~ ls -la projects/"
-      comment="featured repositories, fetched at build time"
+      comment="Featured repositories, fetched at build time"
     />
     <h2 class="mb-6 text-xl font-semibold">Projects</h2>
     <div class="grid gap-4 md:grid-cols-2">
@@ -77,7 +77,7 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry py-16";
   <section id="experience" class={reveal}>
     <SectionPrompt
       command="~ cat experience.log"
-      comment="roles, dates, and the stacks behind them"
+      comment="Roles, dates, and the stacks behind them"
     />
     <h2 class="mb-6 text-xl font-semibold">Experience</h2>
     <div class="space-y-4">
@@ -122,7 +122,7 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry py-16";
   </section>
 
   <section id="github" class={reveal}>
-    <SectionPrompt command="~ curl api.github.com/stats" comment="my GitHub contribution graph" />
+    <SectionPrompt command="~ curl api.github.com/stats" comment="My GitHub contribution graph" />
     <h2 class="mb-6 text-xl font-semibold">GitHub</h2>
     <GithubHeatmap />
   </section>
@@ -130,7 +130,7 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry py-16";
   <section id="blog" class={reveal}>
     <SectionPrompt
       command="~ ls blog/*.md"
-      comment="latest notes — indexable markdown, no client-side fetch"
+      comment="Latest notes — indexable markdown, no client-side fetch"
     />
     <h2 class="mb-6 text-xl font-semibold">Blog</h2>
     <div class="grid gap-4">
@@ -158,7 +158,7 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry py-16";
   </section>
 
   <section id="contact" class={reveal}>
-    <SectionPrompt command="~ cat contact.md" comment="open a channel — follow the signal" />
+    <SectionPrompt command="~ cat contact.md" comment="Open a channel — follow the signal" />
     <h2 class="mb-6 text-xl font-semibold">Contact</h2>
 
     <ul class="space-y-4 text-sm">
