@@ -1,0 +1,360 @@
+---
+import { getCollection } from "astro:content";
+import { NAV_ITEMS, navHref } from "../lib/site";
+
+interface Props {
+  home?: boolean;
+}
+
+const { home = false } = Astro.props;
+
+const navItems = [
+  {
+    id: "home",
+    command: "$ home",
+    description: "The terminal home",
+    href: "/",
+    search: "$ home the terminal home",
+  },
+  ...NAV_ITEMS.map((item) => ({
+    id: item.id,
+    command: item.command,
+    description: item.description,
+    href: navHref(item.id, home),
+    search: `${item.command} ${item.label} ${item.description} ${item.id}`,
+  })),
+];
+
+const posts = (await getCollection("blog"))
+  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+  .map((post) => ({
+    title: post.data.title,
+    description: post.data.description,
+    tags: post.data.tags,
+    slug: post.id,
+    href: `/blog/${post.id}/`,
+    search: `${post.data.title} ${post.data.description} ${post.data.tags.join(" ")} ${post.id}`,
+  }));
+---
+
+<div
+  id="command-palette"
+  class="absolute inset-0 z-60 hidden items-start justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] md:items-start md:pt-[12vh]"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="palette-title"
+>
+  <!-- tw-animations: animate-fade-in-up animate-fade-out-down -->
+  <button
+    type="button"
+    class="absolute inset-0 cursor-pointer bg-surface/80 backdrop-blur-md"
+    data-palette-backdrop
+    tabindex="-1"
+    aria-label="Close search"
+  >
+  </button>
+
+  <div
+    class="palette-panel relative z-10 flex w-full max-w-xl flex-col overflow-hidden rounded-lg border border-white/10 bg-surface"
+  >
+    <h2 id="palette-title" class="sr-only">Search or jump to</h2>
+
+    <div class="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+      <span class="text-brand" aria-hidden="true">➜</span>
+      <label for="palette-input" class="sr-only">Search or jump to</label>
+      <input
+        id="palette-input"
+        type="text"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded="true"
+        aria-controls="palette-list"
+        aria-activedescendant=""
+        placeholder="Search or jump to…"
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+        class="min-w-0 flex-1 bg-transparent text-sm text-ink outline-offset-2 placeholder:text-muted focus-visible:outline-0"
+      />
+    </div>
+
+    <div id="palette-list" class="min-h-0 flex-1 overflow-y-auto p-2" role="listbox">
+      <p
+        data-palette-group="nav"
+        class="px-3 pt-2 pb-1 text-[11px] tracking-wide text-muted uppercase"
+      >
+        Navigate
+      </p>
+      {
+        navItems.map((item) => (
+          <a
+            id={`palette-nav-${item.id}`}
+            href={item.href}
+            data-palette-item
+            data-palette-group="nav"
+            data-search={item.search}
+            role="option"
+            aria-selected="false"
+            class="palette-item"
+            tabindex="-1"
+          >
+            <span class="min-w-0 truncate text-ink">{item.command}</span>
+            <span class="hidden min-w-0 truncate text-xs text-muted sm:block">
+              {item.description}
+            </span>
+          </a>
+        ))
+      }
+
+      <p
+        data-palette-group="posts"
+        class="px-3 pt-3 pb-1 text-[11px] tracking-wide text-muted uppercase"
+      >
+        Posts
+      </p>
+      {
+        posts.map((post) => (
+          <a
+            id={`palette-post-${post.slug}`}
+            href={post.href}
+            data-palette-item
+            data-palette-group="posts"
+            data-search={post.search}
+            role="option"
+            aria-selected="false"
+            class="palette-item"
+            tabindex="-1"
+          >
+            <span class="min-w-0">
+              <span class="block truncate text-ink">{post.title}</span>
+              <span class="mt-0.5 block truncate text-xs text-muted">{post.tags.join(" · ")}</span>
+            </span>
+          </a>
+        ))
+      }
+
+      <p data-palette-empty class="hidden px-3 py-6 text-center text-sm text-muted">
+        No matching pages or posts.
+      </p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .palette-panel {
+    max-height: min(32rem, calc(100dvh - 2rem - env(safe-area-inset-bottom, 0px)));
+  }
+
+  .palette-item {
+    display: flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-left: 2px solid transparent;
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-muted);
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .palette-item.hidden {
+    display: none;
+  }
+
+  .palette-item:hover,
+  .palette-item.is-active {
+    border-left-color: var(--color-brand);
+    background: var(--color-surface-2);
+    color: var(--color-ink);
+  }
+
+  .palette-item.is-active,
+  .palette-item.is-active .text-ink {
+    color: var(--color-brand);
+  }
+
+  .palette-item.is-active .text-muted {
+    color: var(--color-muted);
+  }
+</style>
+
+<script>
+  const palette = document.getElementById("command-palette");
+  const toggle = document.getElementById("palette-toggle");
+  const backdrop = palette?.querySelector<HTMLElement>("[data-palette-backdrop]");
+  const input = document.getElementById("palette-input") as HTMLInputElement | null;
+  const list = document.getElementById("palette-list");
+  const empty = palette?.querySelector<HTMLElement>("[data-palette-empty]");
+  const kbdHint = document.querySelector("[data-palette-kbd]");
+  const items = () =>
+    Array.from(palette?.querySelectorAll<HTMLAnchorElement>("[data-palette-item]") ?? []);
+
+  if (palette && toggle && backdrop && input && list) {
+    let open = false;
+    let lastFocus: HTMLElement | null = null;
+    let hideTimer = 0;
+    let activeIndex = 0;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (kbdHint && /Mac|iPhone|iPad/.test(navigator.userAgent)) {
+      kbdHint.textContent = "⌘K";
+    }
+
+    const visibleItems = () => items().filter((item) => !item.classList.contains("hidden"));
+
+    const conceal = () => {
+      window.clearTimeout(hideTimer);
+      palette.removeEventListener("animationend", onFadeOut);
+      if (!open) {
+        palette.classList.add("hidden");
+        palette.classList.remove("flex");
+      }
+    };
+
+    const onFadeOut = (event: AnimationEvent) => {
+      if (event.target !== palette) return;
+      conceal();
+    };
+
+    const setActive = (index: number) => {
+      const visible = visibleItems();
+      if (visible.length === 0) {
+        input.setAttribute("aria-activedescendant", "");
+        return;
+      }
+
+      activeIndex = ((index % visible.length) + visible.length) % visible.length;
+
+      for (const item of items()) {
+        item.classList.remove("is-active");
+        item.setAttribute("aria-selected", "false");
+      }
+
+      const current = visible[activeIndex];
+      if (!current) return;
+      current.classList.add("is-active");
+      current.setAttribute("aria-selected", "true");
+      input.setAttribute("aria-activedescendant", current.id);
+      current.scrollIntoView({ block: "nearest" });
+    };
+
+    const applyFilter = (query: string) => {
+      const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+      let navVisible = 0;
+      let postsVisible = 0;
+
+      for (const item of items()) {
+        const hay = (item.dataset.search ?? "").toLowerCase();
+        const match = terms.length === 0 || terms.every((term) => hay.includes(term));
+        item.classList.toggle("hidden", !match);
+        if (!match) continue;
+        if (item.dataset.paletteGroup === "nav") navVisible += 1;
+        if (item.dataset.paletteGroup === "posts") postsVisible += 1;
+      }
+
+      palette
+        .querySelectorAll<HTMLElement>("[data-palette-group]:not([data-palette-item])")
+        .forEach((label) => {
+          const group = label.dataset.paletteGroup;
+          const count = group === "nav" ? navVisible : postsVisible;
+          label.classList.toggle("hidden", count === 0);
+        });
+
+      const total = navVisible + postsVisible;
+      empty?.classList.toggle("hidden", total > 0);
+      setActive(0);
+    };
+
+    const setOpen = (next: boolean) => {
+      open = next;
+      document.body.style.overflow = open ? "hidden" : "";
+      toggle.setAttribute("aria-expanded", String(open));
+
+      if (open) {
+        window.clearTimeout(hideTimer);
+        palette.removeEventListener("animationend", onFadeOut);
+        palette.classList.remove("hidden", "animate-fade-out-down");
+        palette.classList.add("flex", "animate-fade-in-up");
+        lastFocus = document.activeElement as HTMLElement | null;
+        input.value = "";
+        applyFilter("");
+        input.focus();
+        return;
+      }
+
+      palette.classList.remove("animate-fade-in-up");
+      if (reduceMotion) {
+        palette.classList.add("hidden");
+        palette.classList.remove("flex");
+        lastFocus?.focus();
+        return;
+      }
+
+      palette.classList.add("animate-fade-out-down");
+      palette.addEventListener("animationend", onFadeOut);
+      hideTimer = window.setTimeout(conceal, 300);
+      lastFocus?.focus();
+    };
+
+    toggle.addEventListener("click", () => setOpen(!open));
+    backdrop.addEventListener("click", () => setOpen(false));
+
+    items().forEach((item) => {
+      item.addEventListener("click", () => setOpen(false));
+      item.addEventListener("mousemove", () => {
+        if (!open) return;
+        const visible = visibleItems();
+        const index = visible.indexOf(item);
+        if (index >= 0 && index !== activeIndex) setActive(index);
+      });
+    });
+
+    input.addEventListener("input", () => {
+      if (!open) return;
+      applyFilter(input.value);
+    });
+
+    document.addEventListener("keydown", (event) => {
+      const key = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && key === "k") {
+        event.preventDefault();
+        setOpen(!open);
+        return;
+      }
+
+      if (!open) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        return;
+      }
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setActive(activeIndex + 1);
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setActive(activeIndex - 1);
+        return;
+      }
+
+      if (event.key === "Enter") {
+        const current = visibleItems()[activeIndex];
+        if (!current) return;
+        event.preventDefault();
+        current.click();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+      event.preventDefault();
+    });
+  }
+</script>

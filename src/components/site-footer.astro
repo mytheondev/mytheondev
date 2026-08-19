@@ -1,10 +1,14 @@
 ---
-// import BlinkingCursor from "./blinking-cursor.astro";
+import { SITE_BRANCH } from "../lib/site";
 ---
 
 <footer
   class="mt-auto flex flex-col items-center gap-1 border-t border-white/10 px-4 py-5 text-center text-xs text-muted md:flex-row md:justify-between md:rounded-b-lg md:px-8 md:text-left md:text-sm"
 >
   <p>© 2026 · code, coffee ☕ and love.</p>
-  <p>Astro · Tailwind CSS · TypeScript</p>
+  <p>
+    <span class="sr-only">Git branch</span>
+    <span aria-hidden="true">⎇</span>
+    {" "}branch: {SITE_BRANCH}
+  </p>
 </footer>

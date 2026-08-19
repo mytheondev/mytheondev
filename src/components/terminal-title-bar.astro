@@ -45,21 +45,21 @@ const { home = false, activeNav, titlePath } = Astro.props;
 
   <button
     type="button"
-    id="menu-toggle"
-    class="menu-toggle relative z-50 flex lg:hidden"
-    aria-label="Open menu"
+    id="palette-toggle"
+    class="relative z-50 flex h-11 min-w-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-white/10 px-2.5 text-xs text-muted transition-colors hover:border-brand hover:text-brand lg:h-8 lg:min-w-0"
+    aria-label="Search or jump to"
     aria-expanded="false"
-    aria-controls="nav-overlay"
+    aria-haspopup="dialog"
+    aria-controls="command-palette"
   >
-    <span class="menu-toggle-bar" aria-hidden="true"></span>
-    <span class="menu-toggle-bar" aria-hidden="true"></span>
-    <span class="menu-toggle-bar" aria-hidden="true"></span>
+    <span class="text-brand lg:hidden" aria-hidden="true">➜</span>
+    <kbd data-palette-kbd class="font-mono text-[11px] tracking-wide">Ctrl+K</kbd>
   </button>
 </header>
 
 <script>
   const header = document.getElementById("site-header");
-  const toggle = document.getElementById("menu-toggle");
+  const toggle = document.getElementById("palette-toggle");
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   if (header && !reduceMotion) {

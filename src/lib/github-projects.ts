@@ -34,7 +34,7 @@ const FALLBACK_PROJECTS: Project[] = [
     description:
       "Lightweight utility for tracking, validating, and debugging environment variable usage across your application.",
     language: "TypeScript",
-    stars: 2,
+    stars: 1,
     url: `https://github.com/${GITHUB_USER}/env-trace`,
     status: "updated",
   },
