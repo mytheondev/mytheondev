@@ -1,11 +1,10 @@
 ---
-import { getCollection } from "astro:content";
 import BlogCard from "../../components/blog-card.astro";
 import SectionPrompt from "../../components/section-prompt.astro";
 import Layout from "../../layouts/terminal.astro";
-import { readingMinutes } from "../../lib/blog";
+import { getEnglishPosts, readingMinutes } from "../../lib/blog";
 
-const posts = (await getCollection("blog")).sort(
+const posts = (await getEnglishPosts()).sort(
   (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
 );
 

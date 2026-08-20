@@ -1,5 +1,5 @@
 ---
-import { getCollection } from "astro:content";
+import { getEnglishPosts } from "../lib/blog";
 import { NAV_ITEMS, navHref } from "../lib/site";
 
 interface Props {
@@ -25,7 +25,7 @@ const navItems = [
   })),
 ];
 
-const posts = (await getCollection("blog"))
+const posts = (await getEnglishPosts())
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
   .map((post) => ({
     title: post.data.title,

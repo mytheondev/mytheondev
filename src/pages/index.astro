@@ -9,11 +9,10 @@ import Typewriter from "../components/typewriter.astro";
 import Layout from "../layouts/terminal.astro";
 import { getFeaturedProjects } from "../lib/github-projects";
 import { GITHUB_URL, INSTAGRAM_URL, LINKEDIN_URL, SITE_DESCRIPTION, SITE_TITLE } from "../lib/site";
-import { readingMinutes } from "../lib/blog";
-import { getCollection } from "astro:content";
+import { getEnglishPosts, readingMinutes } from "../lib/blog";
 
 const projects = await getFeaturedProjects();
-const posts = (await getCollection("blog"))
+const posts = (await getEnglishPosts())
   .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
   .slice(0, 3);
 

@@ -22,6 +22,3 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
-
-# blog posts in Spanish
-src/content/blog/*.es.md
