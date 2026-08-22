@@ -1,0 +1,53 @@
+---
+interface Props {
+  url: string;
+}
+
+const { url } = Astro.props;
+---
+
+<button
+  type="button"
+  id="copy-link"
+  data-url={url}
+  class="text-muted underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
+  aria-label="Copy link to this article"
+  aria-live="polite"
+>
+  Copy link
+</button>
+
+<script>
+  const button = document.getElementById("copy-link");
+  if (button instanceof HTMLButtonElement) {
+    const url = button.dataset.url ?? "";
+    const original = "Copy link";
+    const copied = "Link copied";
+    let resetTimer = 0;
+
+    button.addEventListener("click", async () => {
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(url);
+        } else {
+          throw new Error("clipboard unavailable");
+        }
+      } catch {
+        const input = document.createElement("input");
+        input.value = url;
+        document.body.append(input);
+        input.select();
+        document.execCommand("copy");
+        input.remove();
+      }
+
+      button.textContent = copied;
+      button.setAttribute("aria-label", copied);
+      window.clearTimeout(resetTimer);
+      resetTimer = window.setTimeout(() => {
+        button.textContent = original;
+        button.setAttribute("aria-label", "Copy link to this article");
+      }, 1800);
+    });
+  }
+</script>

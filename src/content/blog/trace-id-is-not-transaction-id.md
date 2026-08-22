@@ -1,11 +1,12 @@
 ---
 title: "A traceId is not a transactionId: following a request across microservices"
 description: "Logging is not observability. How transactionId, traceId, and W3C Trace Context let you reconstruct a request across services — on Cloud Run, AWS, and Azure."
-pubDate: 2026-08-15
+publishedAt: 2026-08-15
+updatedAt: 2026-08-15
 tags: [Observability, Architecture, GCP]
-minutes: 18
+minutes: 16
 related:
-  - structured-logging-transaction-ids-nestjs
+  - structured-logging-transaction-id-nestjs
 ---
 
 The payment succeeded. The confirmation email never arrived. Three services wrote "done" or "failed" into three log buckets, and nobody can prove the same user request produced all three lines.
@@ -16,7 +17,7 @@ When an operation starts in System A and later calls System B and System C, you 
 
 You do not need more logs. You need a reconstructable request.
 
-How to bind `transactionId` onto NestJS logs — and propagate it over HTTP and Pub/Sub without threading it through every method — is in [Structured logging in NestJS](/blog/structured-logging-transaction-ids-nestjs/).
+How to bind `transactionId` onto NestJS logs — and propagate it over HTTP and Pub/Sub without threading it through every method — is in [Structured logging in NestJS](/blog/structured-logging-transaction-id-nestjs/).
 
 ## These identifiers are not the same thing
 
@@ -30,24 +31,6 @@ Teams collapse every ID into "the correlation id" and then wonder why search sti
 | `correlationId` | A proprietary "this conversation" token                    | Whatever your team invented                              |
 | `traceId`       | One distributed execution                                  | One causal graph of spans                                |
 | `spanId`        | One unit of work inside that execution                     | One hop, query, or outbound call                         |
-
-```text
-transactionId
-      │
-      └── Identifies a business operation
-
-traceId
-      │
-      └── Identifies a distributed execution
-
-spanId
-      │
-      └── Identifies a unit of work inside that execution
-
-service / application
-      │
-      └── Identifies who is processing the operation
-```
 
 A `transactionId` answers "which payment?" A `traceId` answers "which run through the system?" A `spanId` answers "which piece of work inside that run?" The service name answers "who was holding the request when this line was written?"
 
@@ -219,7 +202,7 @@ Structured logging buys you:
 
 - **Search** — `transactionId=TX-98431` is an equality, not a grep.
 - **Filtering** — severity, service, environment, and version are fields.
-- **Aggregation** — count timeouts by provider without parsing English.
+- **Aggregation** — count timeouts by provider without parsing text.
 - **Correlation** — the same `traceId` joins logs to spans.
 - **Automated analysis** — alerting and anomaly jobs consume JSON, not prose.
 - **Observability integration** — backends already know `trace` and `spanId`.
@@ -264,85 +247,32 @@ The preferred value for `trace` is the raw `TRACE_ID`. The resource name `projec
 
 ### A conceptual Node.js logger
 
-This is architecture, not a starter kit. In production you would let OpenTelemetry create spans and a logger bind the active context. The point is the payload you must emit.
+This is the payload you must emit — not a starter kit. In production, OpenTelemetry creates spans and the logger binds the active context.
 
 ```ts
-type Severity = "DEBUG" | "INFO" | "NOTICE" | "WARNING" | "ERROR" | "CRITICAL";
-
-type LogFields = {
-  service: string;
-  environment: string;
-  transactionId?: string;
-  applicationId: string;
-  requestId?: string;
-  severity: Severity;
-  message: string;
-};
-
-type TraceContext = {
-  traceId: string;
-  spanId: string;
-  sampled: boolean;
-};
-
-function parseTraceparent(header?: string): TraceContext | undefined {
+function parseTraceparent(header?: string) {
   if (!header) return undefined;
   const [version, traceId, parentId, flags] = header.split("-");
-  if (version !== "00" || !traceId || !parentId || !flags) return undefined;
-  if (traceId.length !== 32 || parentId.length !== 16) return undefined;
-  return {
-    traceId,
-    spanId: parentId,
-    sampled: (parseInt(flags, 16) & 0x01) === 0x01,
-  };
+  if (version !== "00" || traceId?.length !== 32 || parentId?.length !== 16) return undefined;
+  return { traceId, spanId: parentId, sampled: (parseInt(flags, 16) & 0x01) === 0x01 };
 }
 
-function parseCloudTraceContext(header?: string): TraceContext | undefined {
-  if (!header) return undefined;
-  const [traceAndSpan, options] = header.split(";");
-  const [traceId, spanDecimal] = traceAndSpan.split("/");
-  if (!traceId || traceId.length !== 32) return undefined;
-  const spanId = BigInt(spanDecimal ?? "0")
-    .toString(16)
-    .padStart(16, "0");
-  return {
-    traceId,
-    spanId,
-    sampled: options === "o=1",
-  };
-}
-
-function writeLog(
-  fields: LogFields,
-  headers: { traceparent?: string; cloudTrace?: string },
-  projectId: string,
-) {
-  const ctx = parseTraceparent(headers.traceparent) ?? parseCloudTraceContext(headers.cloudTrace);
-
-  const entry = {
-    service: fields.service,
-    environment: fields.environment,
+const ctx = parseTraceparent(headers.traceparent);
+console.log(
+  JSON.stringify({
     transactionId: fields.transactionId,
     applicationId: fields.applicationId,
-    requestId: fields.requestId,
-    severity: fields.severity,
     message: fields.message,
-    ...(ctx && {
-      traceId: ctx.traceId,
-      spanId: ctx.spanId,
-      "logging.googleapis.com/trace": `projects/${projectId}/traces/${ctx.traceId}`,
-      "logging.googleapis.com/spanId": ctx.spanId,
-      "logging.googleapis.com/trace_sampled": ctx.sampled,
-    }),
-  };
-
-  console.log(JSON.stringify(entry));
-}
+    "logging.googleapis.com/trace": ctx && `projects/${projectId}/traces/${ctx.traceId}`,
+    "logging.googleapis.com/spanId": ctx?.spanId,
+    "logging.googleapis.com/trace_sampled": ctx?.sampled,
+  }),
+);
 ```
 
-The incoming `parent-id` is the caller's span. A real tracer would create a **new** `spanId` for local work and put that new id on outbound `traceparent`. Reusing the inbound span on every line still correlates logs to the request. It does not give you a useful span tree.
+The incoming `parent-id` is the caller's span. A real tracer creates a **new** `spanId` for local work and puts that id on outbound `traceparent`. Reusing the inbound span still correlates logs to the request. It does not give you a useful span tree.
 
-Carry `transactionId` in the JSON. Do not invent a second propagation header for it if `traceparent` already crosses the hop.
+Carry `transactionId` in the JSON. Do not invent a second propagation header if `traceparent` already crosses the hop. How to bind these fields onto every NestJS line is in the [companion article](/blog/structured-logging-transaction-id-nestjs/).
 
 ## How the identifiers travel
 
@@ -375,7 +305,7 @@ Do not translate field names as if the platforms were aliases. The job is the sa
 | Context propagation | W3C `traceparent` (preferred) and legacy `X-Cloud-Trace-Context`                 | `X-Amzn-Trace-Id`; W3C ids accepted at ingest after format conversion | W3C Trace Context; older `Request-Id` is being deprecated |
 | Log correlation     | Cloud Logging `trace` / `spanId` / `traceSampled`; parent-child in Logs Explorer | CloudWatch logs joined when the X-Ray trace id is present in the log  | Application Insights telemetry sharing `operation_Id`     |
 
-**Google Cloud.** Cloud Trace stores the waterfall. Cloud Logging stores the lines. You join them by writing `trace` (and preferably `spanId`) on the log entry. Logs Explorer can then nest container logs under the request log. Propagation across your own services is still your job: Cloud Run will start a trace and set `traceparent` on the inbound request; it will not, by itself, stitch A → B → C into one tree.
+**Google Cloud.** Cloud Trace stores the waterfall. Cloud Logging stores the lines. You join them by writing `trace` (and preferably `spanId`) on the log entry. Logs Explorer can then nest container logs under the request log. Propagation across your own services is still your job: Cloud Run will start a trace and set `traceparent` on the inbound request; it will not, by itself, stitch A, B and C into one tree.
 
 **AWS X-Ray.** X-Ray receives **segments** from each compute resource, groups segments that share a request into a **trace**, and builds a **service graph**: nodes for services, edges for the calls between them. A trace ID tracks the path of one request. The native header is `X-Amzn-Trace-Id`:
 
@@ -405,20 +335,14 @@ Three backends. Three ways to say "this is the same request." The portable contr
 
 ## Best practices for designing logs in distributed systems
 
-1. **Use structured logging.** One JSON object per event. Fields you will query must be fields, not English.
-2. **Propagate tracing context.** If A called B, B must see A's `traceparent`. Logs cannot reconstruct a hop that never received the header.
-3. **Use W3C Trace Context.** Do not invent `X-Company-Trace` unless you are also willing to translate it at every edge.
-4. **Keep one `traceId` for the whole execution.** New ids at each service are how traces fragment.
-5. **Generate a new `spanId` for each unit of work.** Reusing the inbound span hides latency and parentage.
-6. **Keep business identifiers such as `transactionId` when they add value.** They answer product questions that a hex trace id will not.
-7. **Include the service name on every line.** A shared `traceId` without an owner is still a scavenger hunt.
-8. **Include environment and version or deployment when it matters.** "Works in staging" is a different binary.
-9. **Use severity correctly.** `ERROR` is a failed unit of work, not a missing optional field. `DEBUG` is not a production firehose.
-10. **Do not log sensitive data.** Tokens, full card PANs, session cookies, and raw PII do not belong in a queryable store.
-11. **Avoid logs that are only noise.** Health checks at `INFO` on every instance will bury the timeout.
-12. **Do not rely on unstructured text.** `Notification failed` is not an API.
-13. **Do not run parallel proprietary correlation schemes** unless a boundary truly cannot speak W3C. Two ids that sometimes match is worse than one that always does.
-14. **Treat logs, metrics, and traces as one observability strategy.** A dashboard without a `traceId`, a trace without logs, and a counter without exemplars are three partial systems.
+1. **Use structured logging.** One JSON object per event. Fields you will query must be fields, not text.
+2. **Propagate W3C `traceparent`.** If A called B, B must see A's context. Do not invent `X-Company-Trace` unless you will translate it at every edge.
+3. **Keep one `traceId` for the whole execution.** New ids at each service are how traces fragment.
+4. **Generate a new `spanId` for each unit of work.** Reusing the inbound span hides latency and parentage.
+5. **Keep `transactionId` for the business object.** Support and finance will not search a hex trace id next week.
+6. **Name the speaker.** Service, environment, and version on every line. A shared `traceId` without an owner is still a scavenger hunt.
+7. **Do not log secrets, and do not log noise.** Tokens, PANs, and session cookies do not belong in a queryable store. Health checks at `INFO` will bury the timeout.
+8. **Treat logs, traces, and metrics as one strategy.** A dashboard without a `traceId`, a trace without logs, and a counter without exemplars are three partial systems. One portable header is better than two house ids that sometimes match.
 
 ## Hypothetical production case
 

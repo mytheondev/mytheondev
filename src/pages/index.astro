@@ -13,7 +13,7 @@ import { getEnglishPosts, readingMinutes } from "../lib/blog";
 
 const projects = await getFeaturedProjects();
 const posts = (await getEnglishPosts())
-  .sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf())
+  .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf())
   .slice(0, 3);
 
 const stack = [
@@ -138,7 +138,7 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry py-16";
             href={`/blog/${post.id}/`}
             title={post.data.title}
             description={post.data.description}
-            pubDate={post.data.pubDate}
+            publishedAt={post.data.publishedAt}
             minutes={readingMinutes(post.body, post.data.minutes)}
             tags={post.data.tags}
           />

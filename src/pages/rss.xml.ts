@@ -12,7 +12,7 @@ export async function GET(context: APIContext) {
     items: posts.map((post) => ({
       title: post.data.title,
       description: post.data.description,
-      pubDate: post.data.pubDate,
+      pubDate: post.data.publishedAt,
       link: `/blog/${post.id}/`,
     })),
   });

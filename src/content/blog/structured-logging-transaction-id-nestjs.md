@@ -1,15 +1,15 @@
 ---
 title: "Structured logging in NestJS: follow a failed request with transactionId"
 description: "How to implement structured logs in NestJS with Pino so a payment is searchable by transactionId — the same identity the companion article separates from traceId."
-pubDate: 2026-04-13
-updatedDate: 2026-08-15
+publishedAt: 2026-04-13
+updatedAt: 2026-04-13
 tags: [NestJS, Observability, Logging]
 minutes: 25
 prerequisites:
   - NestJS
   - TypeScript
 related:
-  - traceid-is-not-transactionid
+  - trace-id-is-not-transaction-id
   - google-cloud-pubsub-how-to-use-it-correctly
 ---
 
@@ -17,7 +17,7 @@ The charge failed. Support has an email, a timestamp, and a screenshot. Orders w
 
 That is not a shortage of `console.log`. It is a missing **business** identity.
 
-[A traceId is not a transactionId](/blog/traceid-is-not-transactionid/) is the companion to this article. It defines the identifiers: `transactionId` is the payment, `traceId` is one run through the system, `spanId` is one step. This article is the NestJS half — how those fields get onto every log line, across HTTP and Pub/Sub, without passing them by hand.
+[A traceId is not a transactionId](/blog/trace-id-is-not-transaction-id/) is the companion to this article. It defines the identifiers: `transactionId` is the payment, `traceId` is one run through the system, `spanId` is one step. This article is the NestJS half — how those fields get onto every log line, across HTTP and Pub/Sub, without passing them by hand.
 
 The job is not to stamp a UUID onto a string and call it correlation. The job is to put `TX-98431` on every event that belongs to that charge, including the worker that runs an hour later under a new trace.
 
@@ -53,9 +53,9 @@ That sentence cannot be filtered by service, joined to a worker, or counted by p
 
 Timestamps are a weak join key:
 
-- instances are not perfectly synchronized;
-- retries land minutes later;
-- a worker may run an hour after the HTTP response;
+- instances are not perfectly synchronized.
+- retries land minutes later.
+- a worker may run an hour after the HTTP response.
 - two checkouts in the same second produce indistinguishable lines.
 
 You need a field that is equal across every hop of **this payment**. Then the incident is a query, not a reconstruction. That field is `transactionId`. A hop-local `requestId` or a house `correlationId` will not survive the worker retry the companion article describes.
@@ -99,42 +99,13 @@ Dumping an object as JSON is not structured logging. `logger.info({ req }, "requ
 
 ## These identifiers are not interchangeable
 
-The companion article already made this point. Repeat it only so the NestJS code below does not collapse the fields again.
+The [companion article](/blog/trace-id-is-not-transaction-id/) defines the jobs. This page only needs enough to keep NestJS from collapsing them:
 
-```text
-transactionId
-      │
-      └── Identifies a business operation   TX-98431
-
-traceId
-      │
-      └── Identifies a distributed execution
-
-spanId
-      │
-      └── Identifies a unit of work inside that execution
-
-applicationId
-      │
-      └── Identifies who emitted the line
-```
-
-| Identifier      | What it identifies                            | Who generates it                                                  | Who propagates it                                            | Lifetime                                    |
-| --------------- | --------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------- |
-| `transactionId` | A business operation: this charge, this order | The service that created the business record                      | Every HTTP client, publisher, and worker **after** it exists | Days or weeks. Survives new traces          |
-| `applicationId` | Which deployable emitted the line             | Build or runtime config                                           | Not a request identity. Written locally                      | Stable per service                          |
-| `requestId`     | One inbound HTTP (or RPC) hop                 | The service that accepted the socket — often pino-http's `req.id` | Usually nobody. The next hop mints its own                   | One request, one process                    |
-| `correlationId` | A house "this conversation" token             | Whoever invented `X-Correlation-Id`                               | Whoever remembered to forward it                             | Whatever the team decided                   |
-| `traceId`       | One distributed execution                     | The tracer / W3C `traceparent`                                    | OpenTelemetry propagators                                    | One trace. A worker retry may start another |
-| `spanId`        | One unit of work inside that execution        | The tracer, per hop or per call                                   | Rewritten on every outbound span                             | One span                                    |
-
-`transactionId` answers "which payment?" Support will ask for `TX-98431`. A checkout can produce two traces — the HTTP charge and the email retry an hour later — and one `transactionId`. That is the join key this article implements.
-
-`requestId` answers "which inbound call hit this instance?" Useful on an access log. Useless the moment Service B generates a new UUID.
-
-`correlationId` is the pre-standard answer: put a UUID on `X-Correlation-Id` and hope. It can carry the conversation **before** a business record exists (the gateway still has no `TX-98431`). It does not encode a parent span, it does not encode sampling, and it is not what finance will type next week. Do not promote it to `transactionId`. Do not replace `traceparent` with it.
-
-`traceId` / `spanId` answer "which run, which step?" They belong to [distributed tracing](https://opentelemetry.io/docs/concepts/signals/traces/). Carry them in parallel via W3C Trace Context. The longer argument is in the [companion article](/blog/traceid-is-not-transactionid/).
+- **`transactionId`** — the payment. Survives retries and a worker that opens a second `traceId`. This is the join key you implement below.
+- **`applicationId`** — which service wrote the line. Written locally. Not a request identity.
+- **`requestId`** — one inbound hop. Useful on an access log. Dead the moment the next service mints a new UUID.
+- **`correlationId`** — a house header. Fine before `TX-98431` exists. Not a `transactionId`. Not a substitute for `traceparent`.
+- **`traceId` / `spanId`** — one execution and one step. Carry them in parallel via W3C Trace Context. Do not replace `transactionId` with them.
 
 ## A context you can actually run
 
@@ -478,8 +449,8 @@ If you also run OpenTelemetry, forward `traceparent` / `tracestate` with the off
 
 What breaks the chain:
 
-- a raw `fetch` or `undici` call that bypasses `HttpService`;
-- a cron that starts work with no inbound `transactionId` and never loads one from the job payload;
+- a raw `fetch` or `undici` call that bypasses `HttpService`.
+- a cron that starts work with no inbound `transactionId` and never loads one from the job payload.
 - a third-party SDK that opens its own HTTP agent.
 
 Wrap those the same way: read `getTransactionId()`, set the header, or refuse to call out without a store once the business record exists.
@@ -675,12 +646,12 @@ Redaction is not a courtesy. Logs are a durable store with a wider audience than
 
 Never write:
 
-- passwords and password hashes;
-- access tokens, refresh tokens, session tokens;
-- cookies and `Set-Cookie`;
-- `Authorization` and API keys;
-- full payment payloads, PAN, CVV, expiry, bank account numbers;
-- secrets, private keys, connection strings;
+- passwords and password hashes.
+- access tokens, refresh tokens, session tokens.
+- cookies and `Set-Cookie`.
+- `Authorization` and API keys.
+- full payment payloads, PAN, CVV, expiry, bank account numbers.
+- secrets, private keys, connection strings.
 - personal data you do not need in order to debug (`email` is often enough; a national id never is).
 
 This line is how those values escape:
@@ -775,31 +746,9 @@ The second form is slower to type the first time and faster every time you are o
 
 ## transactionId is not a traceId
 
-```mermaid
-flowchart TD
-    tx["transactionId<br/>TX-98431"]
-    tx --> events["Relates business events<br/>across traces"]
-```
+That is the same split as the [companion article](/blog/trace-id-is-not-transaction-id/). A `transactionId` lists every log line for the payment, including a worker that ran later under a new `traceId`. It does not give you a parent/child graph, per-hop latency, or a sampling decision.
 
-```mermaid
-flowchart TD
-    tracing["Distributed tracing"]
-    tracing --> model["Represents one execution<br/>as traces + spans"]
-```
-
-That is the same split as the [companion article](/blog/traceid-is-not-transactionid/). A `transactionId` lets you list every log line for the payment, including a worker that ran later under a new `traceId`. It does not give you a parent/child graph, per-hop latency, or a sampling decision.
-
-A `traceId` plus `spanId` values let you draw that graph in Cloud Trace, Jaeger, or whatever backend OpenTelemetry exports to. OpenTelemetry's default propagator is W3C Trace Context. SDKs can [inject the active `traceId` / `spanId` into log records](https://opentelemetry.io/docs/concepts/signals/logs/) so the waterfall and the log query meet.
-
-You want both when the system is large enough to pay for a tracer. You still want `transactionId` when:
-
-- a hop does not speak `traceparent`;
-- a worker starts a new trace;
-- support asks for an id they can put in a ticket;
-- the trace was not sampled and Cloud Trace has no waterfall;
-- finance asks about the same charge next week.
-
-[Logs, traces, and metrics](https://opentelemetry.io/docs/concepts/context-propagation/) are complementary signals. A dashboard without a join key, a trace without logs, and a counter without an example request are three partial systems. Do not present `x-transaction-id` as a cheaper OpenTelemetry. Do not present `x-correlation-id` as a `transactionId`.
+You still want `transactionId` when a hop does not speak `traceparent`, when a worker starts a new trace, when support needs a ticket id, when the trace was not sampled, or when finance asks about the charge next week. Do not present `x-transaction-id` as cheaper OpenTelemetry. Do not present `x-correlation-id` as a `transactionId`.
 
 ## 3:00 AM — a payment failed
 
@@ -849,18 +798,18 @@ Recommended shape for a NestJS service:
 
 ## Checklist
 
-- [ ] Structured logs: one JSON event per line, stable field names
-- [ ] `transactionId` on every business event, assigned once, never reinvented
-- [ ] Context propagation: ALS in-process, not method parameters
-- [ ] Redaction: secrets stripped at the logger
-- [ ] Log levels: production is not `debug`
-- [ ] Consistent events: `order.created`, not free prose
-- [ ] Useful metadata: `errorCode`, `applicationId`
-- [ ] No secrets, tokens, cookies, PAN, CVV
-- [ ] HTTP propagation: `x-transaction-id` once the record exists
-- [ ] Async propagation: Pub/Sub attributes and job metadata carry `transactionId`
-- [ ] `traceparent` when distributed tracing is on; not a substitute for `transactionId`
-- [ ] Retention long enough to finish an incident
+- Structured logs: one JSON event per line, stable field names
+- `transactionId` on every business event, assigned once, never reinvented
+- Context propagation: ALS in-process, not method parameters
+- Redaction: secrets stripped at the logger
+- Log levels: production is not `debug`
+- Consistent events: `order.created`, not free prose
+- Useful metadata: `errorCode`, `applicationId`
+- No secrets, tokens, cookies, PAN, CVV
+- HTTP propagation: `x-transaction-id` once the record exists
+- Async propagation: Pub/Sub attributes and job metadata carry `transactionId`
+- `traceparent` when distributed tracing is on; not a substitute for `transactionId`
+- Retention long enough to finish an incident
 
 ## The request has to remain reconstructable
 
@@ -868,7 +817,7 @@ A production failure is a path. Structured logging makes each step a row. `trans
 
 Put a UUID in `x-request-id` if you want. That is the hop. The design is the business context: who mints `TX-98431`, who refuses a bad one, who copies it onto the next hop, and which fields you are willing to store for a month.
 
-When that is in place, "what happened to this payment?" is a filter. Until it is, you are still aligning timestamps. The identifiers themselves are in the [companion article](/blog/traceid-is-not-transactionid/). This page is how they get into NestJS.
+When that is in place, "what happened to this payment?" is a filter. Until it is, you are still aligning timestamps. The identifiers themselves are in the [companion article](/blog/trace-id-is-not-transaction-id/). This page is how they get into NestJS.
 
 ## Sources
 

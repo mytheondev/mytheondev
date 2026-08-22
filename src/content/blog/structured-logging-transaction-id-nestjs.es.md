@@ -1,15 +1,15 @@
 ---
 title: "Logging estructurado en NestJS: seguir una petición fallida con transactionId"
 description: "Cómo implementar logs estructurados en NestJS con Pino para que un pago sea buscable por transactionId — la misma identidad que el artículo compañero separa de traceId."
-pubDate: 2026-04-13
-updatedDate: 2026-08-15
+publishedAt: 2026-04-13
+updatedAt: 2026-04-13
 tags: [NestJS, Observability, Logging]
 minutes: 25
 prerequisites:
   - NestJS
   - TypeScript
 related:
-  - traceid-is-not-transactionid
+  - trace-id-is-not-transaction-id
   - google-cloud-pubsub-how-to-use-it-correctly
 ---
 
@@ -17,7 +17,7 @@ El cobro falló. Soporte tiene un email, un timestamp y un screenshot. Orders es
 
 Eso no es falta de `console.log`. Es una identidad de **negocio** que falta.
 
-[Un traceId no es un transactionId](/blog/traceid-is-not-transactionid/) es el artículo compañero de este. Define los identificadores: `transactionId` es el pago, `traceId` es una pasada por el sistema, `spanId` es un paso. Este artículo es la mitad NestJS — cómo esos campos llegan a cada línea de log, a través de HTTP y Pub/Sub, sin pasarlos a mano.
+[Un traceId no es un transactionId](/blog/trace-id-is-not-transaction-id/) es el artículo compañero de este. Define los identificadores: `transactionId` es el pago, `traceId` es una pasada por el sistema, `spanId` es un paso. Este artículo es la mitad NestJS — cómo esos campos llegan a cada línea de log, a través de HTTP y Pub/Sub, sin pasarlos a mano.
 
 El trabajo no es estampar un UUID en un string y llamarlo correlación. El trabajo es poner `TX-98431` en cada evento que pertenece a ese cobro, incluyendo el worker que corre una hora después bajo un nuevo trace.
 
@@ -53,9 +53,9 @@ Esa frase no se puede filtrar por servicio, unir a un worker, ni contar por prov
 
 Los timestamps son una clave de unión débil:
 
-- las instancias no están perfectamente sincronizadas;
-- los reintentos caen minutos después;
-- un worker puede correr una hora después de la respuesta HTTP;
+- las instancias no están perfectamente sincronizadas.
+- los reintentos caen minutos después.
+- un worker puede correr una hora después de la respuesta HTTP.
 - dos checkouts en el mismo segundo producen líneas indistinguibles.
 
 Necesitas un campo que sea igual en cada hop de **este pago**. Entonces el incidente es una consulta, no una reconstrucción. Ese campo es `transactionId`. Un `requestId` local a un hop o un `correlationId` casero no sobrevivirán al reintento del worker que describe el artículo compañero.
@@ -86,12 +86,12 @@ La segunda línea es **legible por máquina**. Cloud Logging la almacena como `j
 
 Un evento útil tiene cuatro tipos de datos:
 
-| Pieza       | Rol                             | Ejemplo                          |
-| ----------- | ------------------------------- | -------------------------------- |
-| **Level**   | Qué tan urgente es esta línea   | `error`                          |
-| **Event**   | Qué pasó, como nombre estable   | `payment.failed`                 |
-| **Context** | Qué operación, qué servicio     | `transactionId`, `applicationId` |
-| **Message** | Frase humana para la línea de tiempo | `Payment processing failed` |
+| Pieza       | Rol                                  | Ejemplo                          |
+| ----------- | ------------------------------------ | -------------------------------- |
+| **Level**   | Qué tan urgente es esta línea        | `error`                          |
+| **Event**   | Qué pasó, como nombre estable        | `payment.failed`                 |
+| **Context** | Qué operación, qué servicio          | `transactionId`, `applicationId` |
+| **Message** | Frase humana para la línea de tiempo | `Payment processing failed`      |
 
 Mantén los nombres de eventos aburridos y consistentes: `order.created`, `payment.started`, `payment.failed`. Trátalos como paths de API. Si cada servicio inventa su propio vocabulario, vuelves al folklore con llaves extra.
 
@@ -99,42 +99,13 @@ Volcar un objeto como JSON no es logging estructurado. `logger.info({ req }, "re
 
 ## Estos identificadores no son intercambiables
 
-El artículo compañero ya hizo este punto. Repítelo solo para que el código NestJS de abajo no colapse los campos de nuevo.
+El [artículo compañero](/blog/trace-id-is-not-transaction-id/) define los trabajos. Esta página solo necesita lo suficiente para que NestJS no los colapse:
 
-```text
-transactionId
-      │
-      └── Identifica una operación de negocio   TX-98431
-
-traceId
-      │
-      └── Identifica una ejecución distribuida
-
-spanId
-      │
-      └── Identifica una unidad de trabajo dentro de esa ejecución
-
-applicationId
-      │
-      └── Identifica quién emitió la línea
-```
-
-| Identificador   | Qué identifica                                | Quién lo genera                                                   | Quién lo propaga                                             | Vida útil                                   |
-| --------------- | --------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------- |
-| `transactionId` | Una operación de negocio: este cobro, este pedido | El servicio que creó el registro de negocio                    | Cada cliente HTTP, publisher y worker **después** de que existe | Días o semanas. Sobrevive nuevos traces     |
-| `applicationId` | Qué deployable emitió la línea                | Config de build o runtime                                         | No es identidad de petición. Se escribe localmente           | Estable por servicio                        |
-| `requestId`     | Un hop HTTP (o RPC) entrante                  | El servicio que aceptó el socket — a menudo `req.id` de pino-http | Usualmente nadie. El siguiente hop genera el suyo            | Una petición, un proceso                    |
-| `correlationId` | Un token casero de "esta conversación"        | Quien inventó `X-Correlation-Id`                                  | Quien recordó reenviarlo                                     | Lo que el equipo haya decidido              |
-| `traceId`       | Una ejecución distribuida                     | El tracer / W3C `traceparent`                                     | Propagadores de OpenTelemetry                                | Un trace. Un reintento de worker puede iniciar otro |
-| `spanId`        | Una unidad de trabajo dentro de esa ejecución | El tracer, por hop o por llamada                                  | Reescrito en cada span saliente                              | Un span                                     |
-
-`transactionId` responde "¿qué pago?" Soporte preguntará por `TX-98431`. Un checkout puede producir dos traces — el cobro HTTP y el reintento de email una hora después — y un `transactionId`. Esa es la clave de unión que implementa este artículo.
-
-`requestId` responde "¿qué llamada entrante llegó a esta instancia?" Útil en un access log. Inútil en el momento en que el Servicio B genera un nuevo UUID.
-
-`correlationId` es la respuesta anterior al estándar: pon un UUID en `X-Correlation-Id` y espera. Puede llevar la conversación **antes** de que exista un registro de negocio (el gateway todavía no tiene `TX-98431`). No codifica un span padre, no codifica sampling, y no es lo que finanzas escribirá la semana que viene. No lo promuevas a `transactionId`. No reemplaces `traceparent` con él.
-
-`traceId` / `spanId` responden "¿qué pasada, qué paso?" Pertenecen al [distributed tracing](https://opentelemetry.io/docs/concepts/signals/traces/). Lllévalos en paralelo vía W3C Trace Context. El argumento más largo está en el [artículo compañero](/blog/traceid-is-not-transactionid/).
+- **`transactionId`** — el pago. Sobrevive reintentos y un worker que abre un segundo `traceId`. Esta es la clave de unión que implementas abajo.
+- **`applicationId`** — qué servicio escribió la línea. Se escribe localmente. No es identidad de petición.
+- **`requestId`** — un hop entrante. Útil en un access log. Muerto en el momento en que el siguiente servicio genera un UUID nuevo.
+- **`correlationId`** — un header casero. Vale antes de que exista `TX-98431`. No es un `transactionId`. No sustituye a `traceparent`.
+- **`traceId` / `spanId`** — una ejecución y un paso. Llévalos en paralelo vía W3C Trace Context. No reemplaces `transactionId` con ellos.
 
 ## Un contexto que realmente puedes ejecutar
 
@@ -478,8 +449,8 @@ Si también corres OpenTelemetry, reenvía `traceparent` / `tracestate` con el p
 
 Qué rompe la cadena:
 
-- un `fetch` o `undici` raw que salta `HttpService`;
-- un cron que empieza trabajo sin `transactionId` entrante y nunca lo carga del payload del job;
+- un `fetch` o `undici` raw que salta `HttpService`.
+- un cron que empieza trabajo sin `transactionId` entrante y nunca lo carga del payload del job.
 - un SDK de terceros que abre su propio HTTP agent.
 
 Envuélvelos de la misma forma: lee `getTransactionId()`, pon el header, o niégate a llamar sin un store una vez que el registro de negocio existe.
@@ -574,12 +545,12 @@ El mismo paso de restauración aplica a Bull, Cloud Tasks y cron. El transporte 
 
 Tres mecanismos distintos, un propósito:
 
-| Mecanismo           | Carrier                              | Restaurado por                        |
-| ------------------- | ------------------------------------ | ------------------------------------- |
-| Propagación HTTP    | `x-transaction-id`                   | middleware + `assign`                 |
+| Mecanismo               | Carrier                                 | Restaurado por                      |
+| ----------------------- | --------------------------------------- | ----------------------------------- |
+| Propagación HTTP        | `x-transaction-id`                      | middleware + `assign`               |
 | Propagación de mensajes | Pub/Sub attributes (o metadata del job) | el consumidor, vía `requestAls.run` |
-| Contexto de petición | `AsyncLocalStorage` en proceso      | nada — no cruza un proceso            |
-| Distributed tracing | W3C `traceparent`                    | el propagador de OpenTelemetry        |
+| Contexto de petición    | `AsyncLocalStorage` en proceso          | nada — no cruza un proceso          |
+| Distributed tracing     | W3C `traceparent`                       | el propagador de OpenTelemetry      |
 
 No esperes que ALS sobreviva un publish. No esperes que `traceparent` sobreviva un worker que nunca lo extrajo. Copia `transactionId` al mensaje. El nuevo `traceId` del worker es esperado. El artículo compañero ya dibujó ese grafo.
 
@@ -609,13 +580,13 @@ jsonPayload.transactionId="TX-98431"
 
 Cloud Logging también eleva **campos especiales** del JSON al `LogEntry`. Los que importan aquí:
 
-| Campo JSON                             | Campo LogEntry | Para qué lo pones                                           |
-| -------------------------------------- | -------------- | ----------------------------------------------------------- |
-| `severity`                             | `severity`     | Filtrar por nivel sin parsear el `level` numérico de Pino   |
-| `message`                              | texto display  | La frase en la línea de tiempo                              |
+| Campo JSON                             | Campo LogEntry | Para qué lo pones                                            |
+| -------------------------------------- | -------------- | ------------------------------------------------------------ |
+| `severity`                             | `severity`     | Filtrar por nivel sin parsear el `level` numérico de Pino    |
+| `message`                              | texto display  | La frase en la línea de tiempo                               |
 | `logging.googleapis.com/trace`         | `trace`        | Anidar esta línea bajo el log de petición y unir Cloud Trace |
-| `logging.googleapis.com/spanId`        | `spanId`       | Qué span produjo la línea                                   |
-| `logging.googleapis.com/trace_sampled` | `traceSampled` | Si se almacenó un span                                      |
+| `logging.googleapis.com/spanId`        | `spanId`       | Qué span produjo la línea                                    |
+| `logging.googleapis.com/trace_sampled` | `traceSampled` | Si se almacenó un span                                       |
 
 Los defaults de Pino son `level: 30` y `msg`. Cloud Logging no los trata como especiales. Mapéalos una vez:
 
@@ -675,12 +646,12 @@ La redacción no es una cortesía. Los logs son un almacén durable con una audi
 
 Nunca escribas:
 
-- contraseñas y hashes de contraseñas;
-- access tokens, refresh tokens, session tokens;
-- cookies y `Set-Cookie`;
-- `Authorization` y API keys;
-- payloads completos de pago, PAN, CVV, expiración, números de cuenta bancaria;
-- secretos, claves privadas, connection strings;
+- contraseñas y hashes de contraseñas.
+- access tokens, refresh tokens, session tokens.
+- cookies y `Set-Cookie`.
+- `Authorization` y API keys.
+- payloads completos de pago, PAN, CVV, expiración, números de cuenta bancaria.
+- secretos, claves privadas, connection strings.
 - datos personales que no necesitas para debuggear (`email` a menudo es suficiente; un documento de identidad nacional nunca lo es).
 
 Esta línea es cómo esos valores escapan:
@@ -723,14 +694,14 @@ Defensa en capas:
 
 Los niveles de Pino son `trace`, `debug`, `info`, `warn`, `error`, `fatal`. El `Logger` de Nest mapea `verbose` → `trace` y `log` → `info`. Producción no debería defaultear a `debug`.
 
-| Nivel   | Cuándo                                                                          | Ejemplo                                                     | ¿Producción?                    |
-| ------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------- |
-| `trace` | Ruido a nivel de instrucción                                                    | Entré a `mapProviderError`                                  | No                              |
-| `debug` | Diagnóstico local, feature flags, payloads raw del proveedor que ya redactaste  | Response id del proveedor, intento de retry                 | Muestreado o apagado            |
-| `info`  | Un cambio de estado que querrás en la línea de tiempo del incidente             | `order.created`, `payment.started`                          | Sí, para eventos de negocio dispersos |
-| `warn`  | Recuperable, pero alguien debería mirar                                         | Timeout del proveedor, luego retry; notificación opcional omitida | Sí                        |
-| `error` | Esta unidad de trabajo falló                                                    | `payment.failed`, excepción no manejada en handler          | Sí                              |
-| `fatal` | El proceso no debería continuar                                                 | Falló al bootear, se perdió el pool de DB, sin memoria      | Sí, y raro                      |
+| Nivel   | Cuándo                                                                         | Ejemplo                                                           | ¿Producción?                          |
+| ------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------- | ------------------------------------- |
+| `trace` | Ruido a nivel de instrucción                                                   | Entré a `mapProviderError`                                        | No                                    |
+| `debug` | Diagnóstico local, feature flags, payloads raw del proveedor que ya redactaste | Response id del proveedor, intento de retry                       | Muestreado o apagado                  |
+| `info`  | Un cambio de estado que querrás en la línea de tiempo del incidente            | `order.created`, `payment.started`                                | Sí, para eventos de negocio dispersos |
+| `warn`  | Recuperable, pero alguien debería mirar                                        | Timeout del proveedor, luego retry; notificación opcional omitida | Sí                                    |
+| `error` | Esta unidad de trabajo falló                                                   | `payment.failed`, excepción no manejada en handler                | Sí                                    |
+| `fatal` | El proceso no debería continuar                                                | Falló al bootear, se perdió el pool de DB, sin memoria            | Sí, y raro                            |
 
 Un buen sistema de logs te deja investigar un incidente sin producir millones de líneas irrelevantes.
 
@@ -775,31 +746,9 @@ La segunda forma es más lenta de escribir la primera vez y más rápida cada ve
 
 ## transactionId no es un traceId
 
-```mermaid
-flowchart TD
-    tx["transactionId<br/>TX-98431"]
-    tx --> events["Relaciona eventos de negocio<br/>entre traces"]
-```
+Esa es la misma división que el [artículo compañero](/blog/trace-id-is-not-transaction-id/). Un `transactionId` lista cada línea de log del pago, incluyendo un worker que corrió después bajo un nuevo `traceId`. No te da un grafo padre/hijo, latencia por hop, ni una decisión de sampling.
 
-```mermaid
-flowchart TD
-    tracing["Distributed tracing"]
-    tracing --> model["Representa una ejecución<br/>como traces + spans"]
-```
-
-Esa es la misma división que el [artículo compañero](/blog/traceid-is-not-transactionid/). Un `transactionId` te permite listar cada línea de log del pago, incluyendo un worker que corrió después bajo un nuevo `traceId`. No te da un grafo padre/hijo, latencia por hop, ni una decisión de sampling.
-
-Un `traceId` más valores de `spanId` te permiten dibujar ese grafo en Cloud Trace, Jaeger, o cualquier backend al que exporte OpenTelemetry. El propagador por defecto de OpenTelemetry es W3C Trace Context. Los SDKs pueden [inyectar el `traceId` / `spanId` activo en registros de log](https://opentelemetry.io/docs/concepts/signals/logs/) para que el waterfall y la consulta de logs se encuentren.
-
-Quieres ambos cuando el sistema es lo suficientemente grande como para pagar por un tracer. Todavía quieres `transactionId` cuando:
-
-- un hop no habla `traceparent`;
-- un worker inicia un nuevo trace;
-- soporte pide un id que puedan poner en un ticket;
-- el trace no fue muestreado y Cloud Trace no tiene waterfall;
-- finanzas pregunta por el mismo cobro la semana que viene.
-
-[Logs, traces y métricas](https://opentelemetry.io/docs/concepts/context-propagation/) son señales complementarias. Un dashboard sin clave de unión, un trace sin logs y un contador sin una petición de ejemplo son tres sistemas parciales. No presentes `x-transaction-id` como un OpenTelemetry más barato. No presentes `x-correlation-id` como un `transactionId`.
+Todavía quieres `transactionId` cuando un hop no habla `traceparent`, cuando un worker inicia un nuevo trace, cuando soporte necesita un id de ticket, cuando el trace no fue muestreado, o cuando finanzas pregunta por el cobro la semana que viene. No presentes `x-transaction-id` como un OpenTelemetry más barato. No presentes `x-correlation-id` como un `transactionId`.
 
 ## 3:00 AM — un pago falló
 
@@ -849,18 +798,18 @@ Forma recomendada para un servicio NestJS:
 
 ## Checklist
 
-- [ ] Logs estructurados: un evento JSON por línea, nombres de campos estables
-- [ ] `transactionId` en cada evento de negocio, asignado una vez, nunca reinventado
-- [ ] Propagación de contexto: ALS en proceso, no parámetros de método
-- [ ] Redacción: secretos eliminados en el logger
-- [ ] Niveles de log: producción no es `debug`
-- [ ] Eventos consistentes: `order.created`, no prosa libre
-- [ ] Metadatos útiles: `errorCode`, `applicationId`
-- [ ] Sin secretos, tokens, cookies, PAN, CVV
-- [ ] Propagación HTTP: `x-transaction-id` una vez que el registro existe
-- [ ] Propagación async: Pub/Sub attributes y metadata de jobs llevan `transactionId`
-- [ ] `traceparent` cuando distributed tracing está activado; no es sustituto de `transactionId`
-- [ ] Retención lo suficientemente larga para terminar un incidente
+- Logs estructurados: un evento JSON por línea, nombres de campos estables
+- `transactionId` en cada evento de negocio, asignado una vez, nunca reinventado
+- Propagación de contexto: ALS en proceso, no parámetros de método
+- Redacción: secretos eliminados en el logger
+- Niveles de log: producción no es `debug`
+- Eventos consistentes: `order.created`, no prosa libre
+- Metadatos útiles: `errorCode`, `applicationId`
+- Sin secretos, tokens, cookies, PAN, CVV
+- Propagación HTTP: `x-transaction-id` una vez que el registro existe
+- Propagación async: Pub/Sub attributes y metadata de jobs llevan `transactionId`
+- `traceparent` cuando distributed tracing está activado; no es sustituto de `transactionId`
+- Retención lo suficientemente larga para terminar un incidente
 
 ## La petición tiene que seguir siendo reconstruible
 
@@ -868,7 +817,7 @@ Un fallo de producción es una ruta. El logging estructurado hace de cada paso u
 
 Pon un UUID en `x-request-id` si quieres. Ese es el hop. El diseño es el contexto de negocio: quién genera `TX-98431`, quién rechaza uno malo, quién lo copia al siguiente hop, y qué campos estás dispuesto a almacenar durante un mes.
 
-Cuando eso está en su lugar, "¿qué pasó con este pago?" es un filtro. Hasta entonces, sigues alineando timestamps. Los identificadores mismos están en el [artículo compañero](/blog/traceid-is-not-transactionid/). Esta página es cómo llegan a NestJS.
+Cuando eso está en su lugar, "¿qué pasó con este pago?" es un filtro. Hasta entonces, sigues alineando timestamps. Los identificadores mismos están en el [artículo compañero](/blog/trace-id-is-not-transaction-id/). Esta página es cómo llegan a NestJS.
 
 ## Fuentes
 

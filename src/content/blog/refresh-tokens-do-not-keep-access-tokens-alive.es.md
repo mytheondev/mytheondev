@@ -1,9 +1,10 @@
 ---
 title: "Un refresh token no mantiene vivo un access token: cómo funcionan de verdad las sesiones"
 description: "Por qué un JWT de 30 días es una mala sesión. Cómo access tokens, refresh tokens, rotación y revocación permiten que un usuario siga autenticado limitando la vida de la credencial que viaja con cada petición."
-pubDate: 2026-08-16
+publishedAt: 2026-08-16
+updatedAt: 2026-08-16
 tags: [Security, Architecture, NestJS]
-minutes: 26
+minutes: 23
 prerequisites:
   - HTTP
   - JWT
@@ -16,15 +17,15 @@ Un usuario inicia sesión en una app SaaS a las 09:00. Seguirá trabajando a las
 
 Esa tensión es el problema entero. La credencial que viaja con cada petición es valiosa para un atacante. Cuanto más vive, mayor es la ventana si se filtra. Cuanto menos vive, más a menudo el usuario parece desconectado.
 
-El atajo habitual es un access token de larga vida. La queja habitual es que los tokens de corta vida «rompen la sesión». Ambos yerran la división de responsabilidades.
+El atajo habitual es un access token de larga vida. La queja habitual es que los tokens de corta vida «rompen la sesión». Ambos pasan por alto la división de responsabilidades.
 
-> El access token autoriza peticiones. El refresh token obtiene nuevas credenciales de acceso sin volver a pedir la contraseña del usuario. Juntos mantienen una sesión usable y limitan la vida de la credencial que viaja con cada petición.
+> El access token autoriza peticiones. El refresh token obtiene nuevas credenciales de acceso sin volver a pedir la contraseña del usuario. Juntos mantienen una sesión utilizable y limitan la vida de la credencial que viaja con cada petición.
 
 Un refresh token **no** mantiene vivo un access token. El access token expira. El cliente usa entonces el refresh token para emitir un par nuevo. El usuario nunca ve ese salto si el cliente está bien escrito.
 
 Este artículo es la arquitectura de ese salto: por qué existe el par, cómo deberían comportarse frontend y backend, dónde viven los tokens, cómo funcionan la rotación y la revocación, y cuándo una sesión clásica en el servidor es el mejor diseño. NestJS aparece al final como un bosquejo, no como el objetivo. CORS, rate limiting y Helmet van delante de esta capa; no la sustituyen — ese stack está en [CORS, rate limiting y Helmet en NestJS](/blog/cors-rate-limiting-security-headers-nestjs/).
 
-El vocabulario viene de [OAuth 2.0](https://www.rfc-editor.org/rfc/rfc6749). Una API NestJS de primera parte que emite sus propios tokens **no** es automáticamente un Authorization Server. Es un modelo de sesión que tomó prestados los nombres de OAuth. Las ideas de seguridad siguen aplicando. La ceremonia del protocolo no aparece solo porque firmaste un JWT.
+El vocabulario viene de [OAuth 2.0](https://www.rfc-editor.org/rfc/rfc6749). Una API NestJS first-party que emite sus propios tokens **no** es automáticamente un servidor de autorización. Es un modelo de sesión que tomó prestados los nombres de OAuth. Los principios de seguridad siguen vigentes. La ceremonia de protocolo no se realiza simplemente porque hayas firmado un JWT.
 
 ## Un JWT de 30 días es un incidente de 30 días
 
@@ -55,7 +56,7 @@ flowchart TD
 
 El refresh token sigue siendo un secreto de alto valor. Debe almacenarse con más cuidado, enviarse con menos frecuencia y ser revocable. La ganancia no es «el refresh token es inofensivo». La ganancia es que la credencial en cada `GET /invoices` ya no es una llave de un mes.
 
-Esos números son ejemplos. Una app bancaria, una herramienta de admin interna y un SaaS de consumo no comparten modelo de amenazas. Cinco minutos y siete días es un par de partida habitual. Quince minutos y treinta días es otro. El par correcto depende del riesgo, el tipo de dispositivo y de si puedes revocar la mitad de larga vida.
+Esos números son ejemplos. Una app bancaria, una herramienta de admin interna y un SaaS de consumo no comparten modelo de amenazas. Cinco minutos y siete días es un par de partida habitual. Quince minutos y treinta días es otro. La combinación correcta depende del riesgo, del tipo de dispositivo y de si se puede revocar la parte de larga duración.
 
 Un JWT es un formato. Una sesión es una decisión en el servidor de que el usuario todavía puede actuar. Confundir las dos cosas es cómo los access tokens de larga vida llegan a producción.
 
@@ -63,16 +64,16 @@ Un JWT es un formato. Una sesión es una decisión en el servidor de que el usua
 
 Los equipos comprimen «estar autenticado» en un solo bloque y luego discuten el TTL del token. Los nombres parecen parientes. Los trabajos no lo son.
 
-| Término          | Trabajo                                                                                                 |
-| ---------------- | ------------------------------------------------------------------------------------------------------- |
-| Autenticación    | Probar quién es el usuario, una vez, con credenciales o un factor más fuerte                            |
-| Sesión           | La decisión en el servidor de que esa prueba sigue en vigor                                             |
-| Access token     | Una credencial de corta vida que la API acepta en peticiones ordinarias                                 |
-| Refresh token    | Una credencial de vida más larga usada solo para obtener un access token nuevo                          |
-| Expiración       | Un límite de reloj tras el cual un token no debe aceptarse                                              |
-| Rotación         | Emitir un refresh token nuevo e invalidar el que se acaba de usar                                       |
-| Revocación       | Marcar un token, una familia o cada sesión como inutilizable antes de la expiración                     |
-| Logout           | Terminar la sesión. Logout local limpia el cliente. Logout en el servidor revoca lo que emitió          |
+| Término       | Trabajo                                                                                        |
+| ------------- | ---------------------------------------------------------------------------------------------- |
+| Autenticación | Probar quién es el usuario, una vez, con credenciales o un factor más fuerte                   |
+| Sesión        | La decisión en el servidor de que esa prueba sigue en vigor                                    |
+| Access token  | Una credencial de corta vida que la API acepta en peticiones ordinarias                        |
+| Refresh token | Una credencial de vida más larga usada solo para obtener un access token nuevo                 |
+| Expiración    | Un límite de reloj tras el cual un token no debe aceptarse                                     |
+| Rotación      | Emitir un refresh token nuevo e invalidar el que se acaba de usar                              |
+| Revocación    | Marcar un token, una familia o cada sesión como inutilizable antes de la expiración            |
+| Logout        | Terminar la sesión. Logout local limpia el cliente. Logout en el servidor revoca lo que emitió |
 
 **Autenticación** ocurre en el login — y otra vez si haces step-up para una acción sensible. Es un evento.
 
@@ -90,115 +91,29 @@ Los equipos comprimen «estar autenticado» en un solo bloque y luego discuten e
 
 **Logout** no es «borrar `localStorage`». Eso es limpieza local. Si el refresh token sigue verificando en el servidor, la sesión sigue viva en otra pestaña, otro dispositivo o en el replay de un atacante.
 
-```text
-Autenticación
-      │
-      └── Prueba la identidad
-
-Sesión
-      │
-      └── Mantiene esa prueba en vigor
-
-Access token
-      │
-      └── Autoriza esta petición
-
-Refresh token
-      │
-      └── Emite un access token nuevo
-          No extiende el anterior
-```
-
 ## El flujo que el cliente tiene que acertar
 
-Un access token válido es aburrido. Ese es el camino feliz.
+Un access token válido es aburrido: lo envías, recibes 200. La expiración no es un error en el sentido de producto. Es el diseño funcionando. El frontend debe tratar ese 401 como «intenta renovar», no como «el usuario se fue», hasta que el refresh mismo falle. Luego se reintenta la llamada original. El componente que inició la petición debería ver un 200, no una página de login.
 
 ```mermaid
 sequenceDiagram
     participant F as Frontend
     participant B as Backend
 
+    F->>B: POST /auth/login credenciales
+    B-->>F: access token más refresh token
     F->>B: HTTPS + Access Token
-    B->>B: Validar Access Token
     B-->>F: 200 OK
-```
-
-La expiración no es un error en el sentido de producto. Es el diseño funcionando.
-
-```mermaid
-sequenceDiagram
-    participant F as Frontend
-    participant B as Backend
-
     F->>B: HTTPS + Access Token expirado
-    B->>B: Validar Access Token
     B-->>F: 401 Unauthorized
-```
-
-El frontend debe tratar ese 401 como «intenta renovar», no como «el usuario se fue», hasta que el refresh mismo falle.
-
-```mermaid
-sequenceDiagram
-    participant F as Frontend
-    participant B as Backend
-
-    F->>B: Refresh Token
-
-    B->>B: Validar refresh token
-    B->>B: Verificar expiración
-    B->>B: Verificar revocación
-    B->>B: Rotar refresh token
-    B->>B: Generar nuevo access token
-
+    F->>B: POST /auth/refresh
+    B->>B: Validar, rotar, emitir nuevo par
     B-->>F: Nuevo Access Token + Refresh Token
-
-    Note over F: Recibe tokens nuevos<br/>Actualiza la sesión
-```
-
-Luego se reintenta la llamada original con el access token nuevo. El componente que inició la petición debería ver un 200, no una página de login.
-
-```mermaid
-sequenceDiagram
-    participant F as Frontend
-    participant B as Backend
-
-    F->>B: Reintentar petición original<br/>con nuevo Access Token
+    F->>B: Reintentar petición original con nuevo Access Token
     B-->>F: 200 OK
 ```
 
-Esa secuencia es el producto: un access token de corta vida y una sesión que sigue sintiéndose continua.
-
-```mermaid
-flowchart TD
-  Browser[Navegador] -->|HTTPS| Frontend[Frontend]
-  Frontend -->|Access Token| Api[API]
-  Api -->|válido| Ok200[200 OK]
-  Api -->|expirado| Unauthorized[401 Unauthorized]
-  Frontend -->|Refresh Token| AuthApi[Auth API]
-  AuthApi --> Validate[validar]
-  Validate --> Rotate[rotar]
-  Rotate --> RevokeOld[revocar token anterior]
-  RevokeOld --> IssuePair[emitir nuevo par de tokens]
-```
-
-La misma historia como secuencia, incluyendo el login:
-
-```mermaid
-sequenceDiagram
-  participant Frontend
-  participant Api
-  participant AuthApi
-  Frontend->>AuthApi: POST /auth/login credenciales
-  AuthApi-->>Frontend: access token más refresh token
-  Frontend->>Api: GET /invoices Authorization Bearer AT
-  Api-->>Frontend: 401 expirado
-  Frontend->>AuthApi: POST /auth/refresh
-  AuthApi-->>Frontend: nuevo access token más nuevo refresh token
-  Frontend->>Api: GET /invoices Authorization Bearer nuevo AT
-  Api-->>Frontend: 200 OK
-```
-
-Alguien que nunca haya implementado refresh tokens debería poder leer esos dos diagramas y predecir qué mostrará la pestaña de red a las 09:05.
+Esa secuencia es el producto: un access token de corta vida y una sesión que sigue sintiéndose continua. Alguien que nunca haya implementado refresh tokens debería poder leerla y predecir qué mostrará la pestaña de red a las 09:05.
 
 ## Cómo debería comportarse el frontend
 
@@ -207,13 +122,13 @@ La UI no debe encargarse de esto. Una página que captura 401, llama a refresh y
 Comportamiento esperado:
 
 1. Enviar la petición con el access token.
-2. Si la API devuelve 200, devolver esa respuesta a quien llamó.
+2. Si la API devuelve 200, devolver esa respuesta al caller.
 3. Si la API devuelve 401 porque el access token expiró:
-   - interceptar;
-   - llamar a `POST /auth/refresh` una vez;
-   - guardar los tokens nuevos en el mecanismo que hayas elegido;
-   - repetir la petición original;
-   - devolver esa respuesta a quien llamó.
+   - interceptar.
+   - llamar a `POST /auth/refresh` una vez.
+   - guardar los tokens nuevos en el mecanismo que hayas elegido.
+   - repetir la petición original.
+   - devolver esa respuesta al caller.
 4. Si el refresh falla, limpiar la sesión y enviar al usuario al login.
 
 Un 401 no siempre significa «access token expirado». Un usuario revocado, un token malformado y una cabecera `Authorization` ausente pueden producir 401. El camino de refresh debería ejecutarse cuando tienes un refresh token y la petición estaba autenticada. Si el refresh también devuelve 401, para. No hagas refresh en bucle.
@@ -269,16 +184,7 @@ function refreshSingleFlight() {
 
 ### Single-flight refresh
 
-Un dashboard no hace una petición. Hace tres.
-
-```mermaid
-flowchart LR
-    A["Petición A"] -->|401| A401["401"]
-    B["Petición B"] -->|401| B401["401"]
-    C["Petición C"] -->|401| C401["401"]
-```
-
-Si cada interceptor llama a `/auth/refresh`, emites tres rotaciones del mismo refresh token. Con rotación habilitada, el primero tiene éxito e invalida el token. El segundo presenta un token revocado. La detección de reutilización puede entonces matar la familia, incluido el token que la primera llamada acaba de emitir. El usuario queda desconectado porque la UI cargó tres widgets.
+Un dashboard no hace una petición. Hace tres. Si cada interceptor llama a `/auth/refresh`, emites tres rotaciones del mismo refresh token. Con rotación habilitada, el primero tiene éxito e invalida el token. El segundo presenta un token revocado. La detección de reutilización puede entonces matar la familia, incluido el token que la primera llamada acaba de emitir. El usuario queda desconectado porque la UI cargó tres widgets.
 
 **Single-flight refresh** significa que un solo refresh está en curso. A, B y C esperan la misma promise. Cuando resuelve, los tres reintentan con el access token nuevo. Cuando rechaza, los tres van al login.
 
@@ -301,33 +207,21 @@ Esa es una regla de concurrencia del cliente. El backend no puede salvarte de tr
 
 ### Login
 
-```mermaid
-sequenceDiagram
-    participant C as Cliente
-    participant B as Backend
-
-    C->>B: POST /auth/login<br/>Credenciales
-    B->>B: Validar usuario
-    B->>B: Generar Access Token
-    B->>B: Generar Refresh Token
-    B-->>C: Respuesta<br/>Access Token + Refresh Token
-```
-
 Valida la contraseña (o la aserción del IdP) primero. Luego emite dos credenciales distintas.
 
 El **access token** suele ser un JWT. Conceptualmente lleva:
 
-- `sub` — quién es;
-- `exp` — cuándo muere esta credencial;
-- `iat` / `nbf` — issued-at / not-before cuando los uses;
-- `iss` / `aud` — quién lo emitió y quién debería aceptarlo;
+- `sub` — quién es.
+- `exp` — cuándo muere esta credencial.
+- `iat` / `nbf` — issued-at / not-before cuando los uses.
+- `iss` / `aud` — quién lo emitió y quién debería aceptarlo.
 - roles o scopes contra los que la API autorizará.
 
 Mantenlo pequeño. No metas el perfil. No pongas secretos en claims. Quien pueda leer el token puede leer el payload de un JWT firmado.
 
 El **refresh token** es un handle de sesión. Dos formas habituales:
 
-- un valor aleatorio **opaco**, almacenado solo como hash, como una contraseña;
+- un valor aleatorio **opaco**, almacenado solo como hash, como una contraseña.
 - un token **firmado** cuyo `jti` (o equivalente) apunta a una fila de sesión.
 
 En ambos casos el servidor guarda una fila que puede revocar. El valor que tiene el cliente no debe almacenarse en texto plano en el servidor. Hashéalo. Si la tabla se filtra, los tokens no deberían poder replicarse.
@@ -342,11 +236,11 @@ Authorization: Bearer <access-token>
 
 La API valida el access token, no el refresh token. Comprobaciones típicas:
 
-- firma, con la clave actual;
-- algoritmo esperado — rechazar `none`, rechazar confusión de alg;
-- `iss` / `aud` cuando los hayas definido;
-- `exp` (y `nbf`);
-- claims contra los que la ruta autorizará;
+- firma, con la clave actual.
+- algoritmo esperado — rechazar `none`, rechazar confusión de alg.
+- `iss` / `aud` cuando los hayas definido.
+- `exp` (y `nbf`).
+- claims contra los que la ruta autorizará.
 - estado de sesión o denylist **si** tu arquitectura lo requiere.
 
 Un JWT firmado puede aceptarse sin consultar un almacén. Ese es el beneficio operativo y el coste de revocación. Si la API nunca consulta un store, una sesión revocada sigue funcionando hasta `exp`. Un TTL corto del access token es cómo haces ese coste aceptable. Si necesitas corte instantáneo, añades introspection o una denylist y has reintroducido estado del servidor en el camino crítico.
@@ -361,47 +255,26 @@ Este endpoint no es «login otra vez». Es «demuestra que todavía tienes el se
 
 El backend debería:
 
-1. recibir el refresh token (body, cookie, o ambos — elige un modelo y cúmplelo);
-2. localizar su representación en el servidor (búsqueda por hash, o `jti` → fila);
-3. validar integridad (aleatoriedad + hash, o firma);
-4. comprobar expiración;
-5. comprobar revocación;
-6. comprobar contexto o familia cuando uses uno (el usuario sigue existiendo, el cliente sigue permitido, el dispositivo sigue reconocido);
-7. revocar o rotar el token que se acaba de presentar;
-8. generar un access token nuevo;
-9. generar un refresh token nuevo;
+1. recibir el refresh token (body, cookie, o ambos — elige un modelo y cúmplelo).
+2. localizar su representación en el servidor (búsqueda por hash, o `jti` --> fila).
+3. validar integridad (aleatoriedad + hash, o firma).
+4. comprobar expiración.
+5. comprobar revocación.
+6. comprobar contexto o familia cuando uses uno (el usuario sigue existiendo, el cliente sigue permitido, el dispositivo sigue reconocido).
+7. revocar o rotar el token que se acaba de presentar.
+8. generar un access token nuevo.
+9. generar un refresh token nuevo.
 10. devolver el par nuevo.
 
 Si cualquier comprobación falla, devolver 401 y no emitir tokens. Si la detección de reutilización dispara, revocar la familia primero, luego devolver 401.
 
-[RFC 6749 §6](https://www.rfc-editor.org/rfc/rfc6749#section-6) es la forma OAuth de este intercambio: el refresh token es un grant usado en el token endpoint para obtener un access token nuevo. Un `/auth/refresh` de primera parte es la misma idea con menos protocolo.
+[RFC 6749 §6](https://www.rfc-editor.org/rfc/rfc6749#section-6) es la forma OAuth de este intercambio: el refresh token es un grant usado en el token endpoint para obtener un access token nuevo. Un first-party `/auth/refresh` es la misma idea con menos protocolo.
 
 ## Rotación de refresh tokens
 
-El modelo ingenuo mantiene un refresh token durante toda la vida de la sesión.
+El modelo ingenuo mantiene un refresh token durante toda la vida de la sesión. Si A se filtra, el atacante hace refresh indefinidamente, o hasta que A expire. No puedes distinguir la filtración del cliente legítimo. Ambos presentan un A válido.
 
-```mermaid
-flowchart TD
-    token["Refresh Token A"]
-    token --> refresh["Refresh"]
-    refresh -->|Sigue válido| result["Refresh Token A<br/>+ Nuevo Access Token"]
-```
-
-Si A se filtra, el atacante hace refresh indefinidamente, o hasta que A expire. No puedes distinguir la filtración del cliente legítimo. Ambos presentan un A válido.
-
-La rotación hace A de un solo uso.
-
-```mermaid
-flowchart TD
-    tokenA["Refresh Token A"]
-    refresh["Refresh"]
-    tokenB["Refresh Token B"]
-
-    tokenA --> refresh
-    refresh --> tokenB
-```
-
-A debe morir cuando nace B.
+La rotación hace A de un solo uso. A debe morir cuando nace B.
 
 ```mermaid
 flowchart TD
@@ -435,7 +308,7 @@ sequenceDiagram
 
 El servidor no puede saber cuál de los dos es el ladrón. RFC 9700 es explícito al respecto. La reacción segura es revocar la **familia**: A, B y cualquier sucesor. El usuario legítimo inicia sesión otra vez. El atacante deja de emitir access tokens.
 
-Eso es **detección de reutilización de refresh tokens**. No es obligatoria para cada herramienta interna. Vale la pena cuando el refresh token vive en un cliente público, viaja por un navegador, o sería de otro modo un secreto reutilizable de larga vida. Los tokens vinculados al emisor (el token no sirve sin una clave privada a la que el servidor lo ató) son la alternativa más fuerte en la misma sección de RFC 9700. La mayoría de SPAs de primera parte empiezan con rotación más revocación de familia. Menciona DPoP cuando el modelo de amenazas dice que los tokens robados se van a replicar desde otra máquina.
+Eso es **detección de reutilización de refresh tokens**. No es obligatoria para cada herramienta interna. Vale la pena cuando el refresh token vive en un cliente público, viaja por un navegador, o sería de otro modo un secreto reutilizable de larga vida. Los tokens vinculados al emisor (el token no sirve sin una clave privada a la que el servidor lo ató) son la alternativa más fuerte en la misma sección de RFC 9700. La mayoría de first-party SPAs empiezan con rotación más revocación de familia. Menciona DPoP cuando el modelo de amenazas dice que los tokens robados se van a replicar desde otra máquina.
 
 La rotación sin detección de reutilización sigue limitando un token robado a un uso. La detección de reutilización es lo que convierte el segundo uso en un evento de seguridad en vez de un 401 confuso.
 
@@ -443,12 +316,12 @@ La rotación sin detección de reutilización sigue limitando un token robado a 
 
 No hay un almacén universalmente correcto. Hay un modelo de amenazas.
 
-| Almacén          | JavaScript puede leerlo  | Sobrevive al reload | Riesgo típico                                        |
-| ---------------- | ------------------------ | ------------------- | ---------------------------------------------------- |
-| `localStorage`   | sí                       | sí                  | XSS roba tokens del origin                           |
-| `sessionStorage` | sí                       | vida de la pestaña  | misma superficie XSS, vida más corta                 |
-| memory           | sí, mientras vive la pestaña | no              | XSS todavía puede leerlo; el reload cierra sesión    |
-| cookie HttpOnly  | no                       | sí                  | XSS no puede leerlo; CSRF pasa a ser relevante       |
+| Almacén          | JavaScript puede leerlo      | Sobrevive al reload | Riesgo típico                                     |
+| ---------------- | ---------------------------- | ------------------- | ------------------------------------------------- |
+| `localStorage`   | sí                           | sí                  | XSS roba tokens del origin                        |
+| `sessionStorage` | sí                           | vida de la pestaña  | misma superficie XSS, vida más corta              |
+| memory           | sí, mientras vive la pestaña | no                  | XSS todavía puede leerlo; el reload cierra sesión |
+| cookie HttpOnly  | no                           | sí                  | XSS no puede leerlo; CSRF pasa a ser relevante    |
 
 [OWASP Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) te dice que no pongas tokens de autenticación, JWTs ni refresh tokens en `localStorage` o `sessionStorage`. Esas APIs son visibles para cada script del origin. Un bug de XSS revela la sesión.
 
@@ -456,15 +329,15 @@ Memory es mejor contra persistencia y un poco mejor contra XSS casual (el token 
 
 Las cookies HttpOnly mantienen el refresh token fuera de `document.cookie` y de los lectores XSS. [La guía de cookies de MDN](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/Cookies) y [`Set-Cookie`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie) describen las banderas que importan:
 
-- **HttpOnly** — no expuesto a JavaScript;
-- **Secure** — enviado solo en HTTPS;
+- **HttpOnly** — no expuesto a JavaScript.
+- **Secure** — enviado solo en HTTPS.
 - **SameSite** — `Strict` o `Lax` reducen envíos cross-site; `None` exige `Secure` y es la opción sensible a CSRF para SPAs cross-site.
 
 Las cookies no eliminan XSS. Cambian lo que XSS puede robar. Un script inyectado todavía puede disparar peticiones que el navegador autenticará. También introducen **CSRF** si un sitio externo puede hacer que el navegador envíe la cookie. [OWASP CSRF Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html) es la otra mitad de un diseño con cookies: SameSite, cabeceras de petición personalizadas que el navegador no añadirá cross-site, y tokens anti-CSRF cuando SameSite no basta.
 
-Una división habitual para una web app de primera parte:
+Una división habitual para una first-party web app:
 
-- access token en memory, enviado como `Authorization: Bearer`;
+- access token en memory, enviado como `Authorization: Bearer`.
 - refresh token en una cookie HttpOnly, Secure, SameSite con alcance a `/auth/refresh`.
 
 El access token sigue apareciendo en JS (lo pones en la cabecera). El secreto de larga vida no. Las SPAs cross-origin entonces necesitan CORS con credenciales, disciplina de `Domain`/`Path` de la cookie, y una estrategia de CSRF. Las apps del mismo origin tienen un modelo de cookies más fácil.
@@ -508,11 +381,11 @@ Luego el cliente limpia storage y memory. El orden importa menos que hacer ambas
 
 Tres alcances que la gente comprime en un botón:
 
-- **este dispositivo** — revocar el refresh token / familia actual;
-- **todos los dispositivos** — revocar cada familia del usuario;
+- **este dispositivo** — revocar el refresh token / familia actual.
+- **todos los dispositivos** — revocar cada familia del usuario.
 - **global** — cambio de contraseña, desactivación de admin, filtración de credenciales: revocar cada sesión y, si puedes, invalidar access tokens que siguen dentro de su TTL.
 
-El JWT de acceso seguirá siendo aceptable hasta `exp` salvo que lo pongas en denylist o hagas introspection. Eso es lo esperado. Por eso diez minutos es más fácil de defender que treinta días. RFC 9700 permite a los authorization servers revocar refresh tokens en logout o cambio de contraseña. Haz lo mismo en una tabla de sesión de primera parte.
+El JWT de acceso seguirá siendo aceptable hasta `exp` salvo que lo pongas en denylist o hagas introspection. Eso es lo esperado. Por eso diez minutos es más fácil de defender que treinta días. RFC 9700 permite a los servidores de autorización revocar refresh tokens en logout o cambio de contraseña. Haz lo mismo en una tabla de sesión.
 
 ## Access token versus refresh token
 
@@ -528,44 +401,27 @@ Este es el modelo general, no una ley.
 | Rotación       | normalmente no             | recomendada                    |
 | Almacenamiento | depende de la arquitectura | necesita protección más fuerte |
 
-Un access token puede ser un JWT o un handle opaco. Un refresh token puede rotarse o ser vinculado al emisor. Algunas APIs hacen introspection de cada access token y pueden revocarlos al instante. La tabla describe la división habitual de primera parte: access tokens cortos, presentados con frecuencia, difíciles de revocar, más refresh tokens largos, presentados rara vez, rastreados en el servidor.
+Un access token puede ser un JWT o un handle opaco. Un refresh token puede rotarse o ser vinculado al emisor. La tabla describe la división habitual: access tokens cortos, presentados con frecuencia, difíciles de revocar, más refresh tokens largos, presentados rara vez, rastreados en el servidor.
 
 ## Los refresh tokens no hacen seguro el diseño
 
 Cambian la vida de la credencial en el camino crítico. Todo lo demás sigue siendo tu trabajo:
 
-- almacenamiento que encaje con XSS y CSRF;
-- HTTPS en cada salto que vea un token;
-- rotación de refresh tokens para clientes públicos;
-- revocación que de verdad puedas ejecutar;
-- detección de reutilización cuando la rotación es el control;
-- expiración en **ambos** tokens — un refresh token sin `exp` es una sesión permanente;
-- un registro de sesión, no solo un blob firmado;
-- secretos y signing keys que roten;
+- almacenamiento que encaje con XSS y CSRF.
+- HTTPS en cada salto que vea un token.
+- rotación de refresh tokens para clientes públicos.
+- revocación que de verdad puedas ejecutar.
+- detección de reutilización cuando la rotación es el control.
+- expiración en **ambos** tokens — un refresh token sin `exp` es una sesión permanente.
+- un registro de sesión, no solo un blob firmado.
+- secretos y signing keys que roten.
 - validación JWT que compruebe alg, firma, `exp` e `iss`/`aud` cuando los uses.
 
-Sáltate el almacén y tienes un JWT de larga vida con pasos extra. Sáltate HTTPS y el par es visible en el cable. Sáltate la rotación y un refresh token robado es una llave duradera. Sáltate CSRF en cookies y una página externa puede hacer refresh por el usuario. El par es un patrón. No es un control.
+Sáltate el almacén y tienes un JWT de larga vida con pasos extra. Sáltate HTTPS y el par es visible en la red. Sáltate la rotación y un refresh token robado es una llave duradera. Sáltate CSRF en cookies y una página externa puede hacer refresh por el usuario. El par es un patrón. No es un control.
 
 ## 09:00, y el usuario nunca lo ve
 
-Un día realista en una app SaaS con un access token de diez minutos:
-
-```text
-09:00 --> login
-09:00 --> se emite access token, se emite refresh token
-09:04 --> GET /invoices --> 200
-09:05 --> el access token expira
-09:05 --> el usuario hace clic en «Exportar»
-09:05 --> la API responde 401
-09:05 --> el frontend ejecuta POST /auth/refresh
-09:05 --> el backend rota el refresh token, emite un par nuevo
-09:05 --> el frontend reintenta Exportar
-09:05 --> la API responde 200
-```
-
-El usuario hizo clic en un botón. La pestaña de red muestra un `401` extra y un `POST /auth/refresh` si mira. El producto no pide una contraseña. Esa es la razón de que exista el patrón: **la sesión puede continuar mientras las credenciales de acceso siguen siendo de corta vida.**
-
-Si el refresh hubiera fallado — familia revocada, refresh token expirado, token reutilizado — el mismo interceptor habría limpiado la sesión y mostrado el login. El usuario entendería eso. No debería tener que entender el 401 del medio.
+Un access token de diez minutos en una app SaaS: login a las 09:00, `GET /invoices` a las 09:04 devuelve 200, Exportar a las 09:05 recibe 401, el interceptor ejecuta `POST /auth/refresh`, el backend rota, el reintento devuelve 200. El usuario hizo clic en un botón. El producto no pide una contraseña. **La sesión puede continuar mientras las credenciales de acceso siguen siendo de corta vida.** Si el refresh falla — familia revocada, refresh token expirado, token reutilizado — el mismo interceptor limpia la sesión y muestra el login.
 
 ## Un bosquejo de NestJS, después de la arquitectura
 
@@ -653,7 +509,7 @@ async logout(@Body('refreshToken') token: string) {
 
 Una variante «logout en todos los dispositivos» revoca cada fila de `userId`. El access token ya en vuelo muere en `exp` salvo que añadas una denylist.
 
-El interceptor del frontend se queda en el pseudocódigo de arriba. Conecta `storeTokens` a memory, cookies o un BFF. Excluye `/auth/refresh` del reintento de 401. Haz single-flight de la promise de refresh.
+El interceptor del frontend se queda en el pseudocódigo de arriba. Conecta `storeTokens` a memory, cookies o un BFF. Excluye `/auth/refresh` del reintento de 401. Haz single-flight de la promesa del refresh.
 
 Eso es suficiente NestJS para ver el mapeo. La arquitectura es la fila de sesión, las dos vidas y el reintento del cliente. El framework es cómo enganchas un guard.
 
@@ -685,11 +541,11 @@ flowchart TD
 
 **API** — autentica el access token, luego autoriza el recurso. No debería aceptar un refresh token como credencial bearer en `/invoices`.
 
-**Auth API** — login, refresh, logout, cambio de contraseña. El único escritor de filas de sesión. En un monolito modular esto es un módulo, no un segundo desplegable. La caja es una responsabilidad.
+**Auth API** — login, refresh, logout, cambio de contraseña. El único escritor de filas de sesión. En un monolito modular esto es un módulo, no un segundo desplegable. El entorno es una responsabilidad.
 
 **Session DB** — refresh tokens hasheados, familias, expiración, revocación, dispositivo. Esto es lo que hace reales el logout y la detección de reutilización. Prisma, SQL o Redis pueden guardarlo. El schema importa más que el producto.
 
-Auth API y API pueden ser un solo proceso NestJS. Sepáralos cuando la emisión y el acceso a recursos necesiten distinta escala, equipos o fronteras de confianza. No los separes porque el diagrama tiene dos cajas.
+Auth API y API pueden ser un solo proceso de NestJS. Sepáralos cuando la emisión y el acceso a recursos necesiten distinta escala, equipos o fronteras de confianza. No los separes porque el diagrama tiene dos cajas.
 
 ## Errores habituales
 
@@ -711,29 +567,23 @@ Auth API y API pueden ser un solo proceso NestJS. Sepáralos cuando la emisión 
 
 Access token más refresh token es un buen punto de partida cuando:
 
-- la UI es una SPA en otro origin;
-- una app móvil debe seguir autenticada sin incrustar una contraseña;
-- una API SaaS es llamada por un cliente de primera parte durante horas;
-- frontend y backend son desplegables separados;
+- la UI es una SPA en otro origin.
+- una app móvil debe seguir autenticada sin incrustar una contraseña.
+- una API SaaS es llamada por un cliente durante horas.
+- frontend y backend son desplegables separados.
 - quieres credenciales bearer de corta vida en la API y una sesión revocable detrás.
 
 No es la actualización obligatoria desde una cookie.
 
 Una **sesión clásica en el servidor** — un session id HttpOnly, almacén en el servidor, sin JWT en cada petición — suele ser más simple cuando el navegador y la app comparten origin, no necesitas un bearer token para móvil o terceros, y ya consultas la sesión en cada petición. Ya tienes revocación. Ya tienes logout. No necesitas teatro de rotación para compensar un access token stateless que nunca necesitaste.
 
-OAuth completo — authorization code, PKCE, un Authorization Server de verdad, quizá DPoP — es la herramienta correcta cuando el problema son clientes de terceros, un IdP o acceso delegado. Emitir tu propio par JWT en NestJS no es ese sistema. Es una sesión de primera parte que tomó prestados dos tipos de token.
+OAuth completo — authorization code, PKCE, un Authorization Server de verdad, quizá DPoP — es la herramienta correcta cuando el problema son clientes de terceros, un IdP o acceso delegado. Emitir tu propio par JWT en NestJS no es ese sistema. Es una sesión que tomó prestados dos tipos de token.
 
 No adoptes access-plus-refresh porque un tutorial tituló el archivo `jwt-refresh.strategy.ts`. Adóptalo porque necesitas una credencial de petición de corta vida y una prueba de vida más larga, revocable, de que el usuario debería obtener otra.
 
 ## Ideas clave
 
-- Un refresh token no extiende un access token. Obtiene uno nuevo después de que el anterior expire, para que la sesión pueda continuar sin pedir contraseña.
-- Un JWT de larga vida es un incidente de larga vida. Divide las vidas: access tokens cortos en el camino crítico, un refresh token más largo que puedas revocar.
-- El comportamiento importante del cliente es interceptar → refresh de vuelo único → reintentar. Tres refreshes en paralelo pelearán con la rotación y parecerán un robo.
-- Rotación más detección de reutilización convierte un refresh token repetido en una revocación de toda la familia. Eso es una señal de seguridad, no un reintento.
-- Limpiar el frontend no es logout. Logout revoca la sesión en el servidor. El JWT de acceso puede seguir funcionando hasta `exp`.
-- El almacenamiento es una elección de modelo de amenazas. Las cookies HttpOnly reducen la exposición a JavaScript del refresh token y hacen de CSRF tu problema. `localStorage` hace lo contrario.
-- JWT más refresh tokens es un patrón de sesión, no una garantía. HTTPS, validación, expiración, rotación, revocación y controles de XSS/CSRF son lo que hace que el patrón aguante.
+Un refresh token obtiene un access token nuevo después de que el anterior expire. No extiende el anterior. Divide las vidas, rota el refresh token, detecta reutilización, revoca en el servidor y haz single-flight del reintento en el cliente. El almacenamiento y los controles XSS/CSRF son el resto del diseño, no una nota al pie.
 
 ## Fuentes
 

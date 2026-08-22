@@ -5,7 +5,7 @@ import Layout from "../../layouts/terminal.astro";
 import { getEnglishPosts, readingMinutes } from "../../lib/blog";
 
 const posts = (await getEnglishPosts()).sort(
-  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
+  (a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf(),
 );
 
 const title = "Blog — Mytheon";
@@ -38,7 +38,7 @@ const description =
               href={`/blog/${post.id}/`}
               title={post.data.title}
               description={post.data.description}
-              pubDate={post.data.pubDate}
+              publishedAt={post.data.publishedAt}
               minutes={readingMinutes(post.body, post.data.minutes)}
               tags={post.data.tags}
             />

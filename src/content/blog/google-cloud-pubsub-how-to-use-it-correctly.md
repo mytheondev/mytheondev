@@ -1,9 +1,10 @@
 ---
 title: "Google Cloud Pub/Sub: how to use it correctly, and when you actually need it"
 description: "Pub/Sub is not a queue and not a REST replacement. How to design topics, subscriptions, retries, and idempotent consumers — and when HTTP or Cloud Tasks is the better fit."
-pubDate: 2026-08-14
+publishedAt: 2026-08-14
+updatedAt: 2026-08-14
 tags: [GCP, Pub/Sub, Architecture]
-minutes: 20
+minutes: 17
 ---
 
 Your payment service should not wait for notifications, analytics, audit, and billing to finish processing an event.
@@ -16,7 +17,7 @@ Google Cloud Pub/Sub is an asynchronous messaging service. Publishers send messa
 
 Use it when you need decoupling, fan-out, or work that can finish after the request. Skip it when a single HTTP call is the actual design.
 
-## The mental model: a topic is not a queue
+## A topic is not a queue
 
 These are the pieces that matter in production.
 
@@ -49,7 +50,7 @@ Multiple subscribers on the **same** subscription are a different pattern. Pub/S
 
 Confusing those two shapes is the most common design error I see. One subscription for “everyone who cares about orders” means Inventory and Analytics race for the same messages. One of them loses events. The topic did nothing wrong.
 
-## Fan-out in an order flow
+In an order flow that split looks like this:
 
 ```mermaid
 flowchart TD
@@ -73,23 +74,23 @@ That is the coupling win. The producer owns the fact. Each consumer owns its rea
 
 This is also the limit. Order Service cannot wait for Inventory to confirm stock. If the HTTP response must include “item reserved,” Pub/Sub is the wrong hop in that path.
 
-## You do not need Pub/Sub for everything
+## When to use Pub/Sub — and when not
 
 Pub/Sub fits when the work is genuinely asynchronous:
 
-- a request should return before side effects finish
-- several services must react to the same fact
-- producers should not know the consumer list
-- you are ingesting events into a pipeline or data lake
-- you can tolerate processing that happens after the user is gone
+- a request should return before side effects finish.
+- several services must react to the same fact.
+- producers should not know the consumer list.
+- you are ingesting events into a pipeline or data lake.
+- you can tolerate processing that happens after the user is gone.
 
 It is usually the wrong default when:
 
-- the caller needs a response to continue
-- you are modeling a request/response API
-- you need a distributed transaction across services
-- one HTTP call to one known endpoint is the whole job
-- there is no real async work, only a desire to “look event-driven”
+- the caller needs a response to continue.
+- you are modeling a request/response API.
+- you need a distributed transaction across services.
+- one HTTP call to one known endpoint is the whole job.
+- there is no real async work, only a desire to “look event-driven”.
 
 ```mermaid
 flowchart LR
@@ -108,7 +109,9 @@ flowchart LR
 
 HTTP is a conversation. Pub/Sub is a broadcast of a fact. If you publish `ChargeCard` and then poll another service for the result so the user can see a receipt, you have rebuilt RPC with extra failure modes. That is not decoupling. That is a queue in front of a function call.
 
-## At-least-once delivery is the default contract
+## Delivery semantics
+
+### At-least-once is the default
 
 Pub/Sub delivers each message **at least once** to a subscription. A subscriber that does not acknowledge before the deadline, or that nacks, gets the message again. Official subscriber guidance is explicit: occasional duplicates are expected, and your system must tolerate them.
 
@@ -125,7 +128,7 @@ The ack means “Pub/Sub may stop offering this delivery.” It does not mean �
 
 A successful ack also does not make the handler idempotent. Idempotency is your write path, not a Pub/Sub flag.
 
-## The golden rule: consumers must be idempotent
+### Consumers must be idempotent
 
 A payment consumer that assumes one delivery is a production incident waiting for a blip.
 
@@ -154,14 +157,14 @@ Use a stable key — usually `eventId`, or a business key such as `paymentId` pl
 
 This is a design rule, not a product feature. Exactly-once delivery, covered next, narrows duplicate _deliveries_. It does not remove the need to make charges, emails, and stock updates safe under retry.
 
-## Exactly-once delivery is not a magic default
+### Exactly-once is not a magic default
 
 Pub/Sub can enable **exactly-once delivery** on a subscription. It is off unless you turn it on. When it is on, the documented semantics are:
 
-- subscribers can tell whether an ack succeeded
-- after a successful ack, that message is not redelivered
-- while a message is outstanding, it is not redelivered
-- if a delivery is retried (deadline expiry or nack), only the latest ack ID is valid
+- subscribers can tell whether an ack succeeded.
+- after a successful ack, that message is not redelivered.
+- while a message is outstanding, it is not redelivered.
+- if a delivery is retried (deadline expiry or nack), only the latest ack ID is valid.
 
 Conditions that matter in real systems:
 
@@ -173,7 +176,7 @@ Trade-offs are documented, not implied: higher publish-to-subscribe latency, and
 
 Exactly-once delivery is a delivery property. Idempotency is a business property. Use the feature when duplicate _deliveries_ are expensive to filter. Still write the consumer as if a retry can happen — because ack failure, multi-region clients, and side effects outside Pub/Sub remain your problem.
 
-## Message ordering is per key, not global
+### Ordering is per key, not global
 
 Do not treat Pub/Sub as a globally ordered log. Without ordering enabled, delivery order is not guaranteed. With it enabled, order is **per ordering key**, and only if the publisher sent those messages **in the same region**. Subscribers may connect from any region and still see that per-key order.
 
@@ -190,15 +193,33 @@ Set `ordering_key` to `123` (or another stable entity id), enable message orderi
 
 Cost of that promise:
 
-- publish throughput per ordering key is limited to **1 MBps**
-- ordered delivery reduces publish availability and increases end-to-end latency versus unordered delivery
-- a redelivery of message 2 also redelivers later messages on that key, including ones you already acked
-- a hot key — one id that outruns its consumer — builds its own backlog; Pub/Sub will not parallelize that key for you
-- push subscriptions allow only one outstanding message per key, so they are a poor fit when the same key is hot
+- publish throughput per ordering key is limited to **1 MBps**.
+- ordered delivery reduces publish availability and increases end-to-end latency versus unordered delivery.
+- a redelivery of message 2 also redelivers later messages on that key, including ones you already acked.
+- a hot key — one id that outruns its consumer — builds its own backlog; Pub/Sub will not parallelize that key for you.
+- push subscriptions allow only one outstanding message per key, so they are a poor fit when the same key is hot.
 
 You need ordering when the consumer cannot reconstruct sequence (ledger-style updates, some session flows). You do not need it because “orders should happen in order” in the abstract. Many consumers can apply `OrderShipped` after `OrderCreated` with state checks and ignore a late duplicate. That is cheaper than turning the topic into a per-customer queue.
 
-## Dead-letter topics catch poison, they do not delete it
+## Operating consumers
+
+### Ack after the write
+
+**Process, then ack.** An ack before the write is how you lose a message on a crash. Pub/Sub will not redeliver a successfully acked message unless you seek.
+
+**Ack deadline** defaults to **10 seconds** (10–600). Client libraries extend leases. If processing regularly exceeds the deadline, you get duplicates that look like “Pub/Sub is broken.” They are expired leases. Slow handlers should extend, nack, or do less work inline.
+
+**StreamingPull** via the high-level client library is the default recommendation for pull. Unary pull with `returnImmediately=true` is deprecated and hurts performance.
+
+**Subscriber flow control** caps outstanding messages and bytes. When the cap is hit, the client stops pulling. That is backpressure. It is how a slow consumer avoids drowning and then nacking everything.
+
+**A slow consumer produces redeliveries.** Outstanding messages hit the deadline, Pub/Sub sends them again, the consumer gets more work, the deadline expires again. Flow control, more replicas on the same subscription, and a deadline that matches p99 processing time break that loop. A dead-letter topic stops the few messages that will never succeed.
+
+**Push** is the right shape for a webhook you do not want to poll — Cloud Run, a single HTTPS handler, no client library. Pub/Sub owns flow control. HTTP errors are nacks. Push backoff (100 ms to 60 s, not configurable) can stall the whole subscription if the endpoint is unhealthy. Monitor push response codes.
+
+**Observe the subscription**, not just the process. Backlog and expired ack deadlines tell you the consumer is lying about being healthy.
+
+### Dead-letter topics catch poison
 
 A message that never acks will be retried until it expires from retention. A bad payload, a bug, or a dependency that is down for hours can pin a consumer on the same record. A dead-letter topic is how you stop that loop without pretending the event never existed.
 
@@ -216,7 +237,7 @@ After an approximate number of delivery attempts — default **5**, configurable
 
 Attach a subscription to the dead-letter topic. Inspect, fix, and replay. Dropping poison messages to `/dev/null` hides data loss. The metric to watch is `subscription/dead_letter_message_count`.
 
-## Retry transient errors. Bound everything else.
+### Retry transient errors. Bound everything else
 
 Not every failure deserves the same retry.
 
@@ -229,7 +250,9 @@ Retry policy itself is best-effort. Google’s docs warn against using nacks to 
 
 Unbounded retry without a dead-letter topic means a poison message occupies a slot until retention (default **7 days**, 10 minutes to 31 days) drops it. That is a silent discard with a long delay. Put a ceiling on attempts and look at what hits the ceiling.
 
-## Publisher practices that are actually documented
+## Publishing
+
+### Batching, flow control, and retries
 
 These are from Google’s publish best-practice guide, not folklore. Tune them when your use case needs it; the defaults are there for a reason.
 
@@ -241,29 +264,13 @@ These are from Google’s publish best-practice guide, not folklore. Tune them w
 
 **Publisher retries** already have defaults (in the Java library, for example, initial retry delay 100 ms, multiplier 4, max retry delay 60 s, total timeout 600 s). Official guidance: leave them unless you have evidence they are wrong. Flaky or high-latency networks are the usual reason to touch RPC timeouts, not “we publish a lot.”
 
-**Schemas** (Avro or Protocol Buffer) enforce the `data` field. One top-level type, no imports of other types, 300 KB schema, 20 revisions. Use a schema when multiple teams consume the stream and you want the broker to reject garbage. Version the payload anyway; a schema does not replace `eventType` + `version` in the event.
-
-**Ordering** on the publish side means locational endpoints so a key stays in one region, and a resume-publish path if a non-retryable error stalls that key.
+**Ordering** on the publish side means locational endpoints so a key stays in one region and a resume-publish path, if a non-retryable error stalls that key.
 
 **Message storage policy** is how you keep data on disk inside an allowed set of regions. Use it for residency requirements, not as a performance knob.
 
-## Subscriber practices that keep you out of redelivery hell
+### Schemas and event envelopes
 
-**Process, then ack.** An ack before the write is how you lose a message on a crash. Pub/Sub will not redeliver a successfully acked message unless you seek.
-
-**Ack deadline** defaults to **10 seconds** (10–600). Client libraries extend leases. If processing regularly exceeds the deadline, you get duplicates that look like “Pub/Sub is broken.” They are expired leases. Slow handlers should extend, nack, or do less work inline.
-
-**StreamingPull** via the high-level client library is the default recommendation for pull. Unary pull with `returnImmediately=true` is deprecated and hurts performance.
-
-**Subscriber flow control** caps outstanding messages and bytes. When the cap is hit, the client stops pulling. That is backpressure. It is how a slow consumer avoids drowning and then nacking everything.
-
-**A slow consumer produces redeliveries.** Outstanding messages hit the deadline, Pub/Sub sends them again, the consumer gets more work, the deadline expires again. Flow control, more replicas on the same subscription, and a deadline that matches p99 processing time break that loop. A dead-letter topic stops the few messages that will never succeed.
-
-**Push** is the right shape for a webhook you do not want to poll — Cloud Run, a single HTTPS handler, no client library. Pub/Sub owns flow control. HTTP errors are nacks. Push backoff (100 ms to 60 s, not configurable) can stall the whole subscription if the endpoint is unhealthy. Monitor push response codes.
-
-**Observe the subscription**, not just the process. Backlog and expired ack deadlines tell you the consumer is lying about being healthy.
-
-## Do not publish arbitrary JSON
+**Schemas** (Avro or Protocol Buffer) enforce the `data` field. One top-level type, no imports of other types, 300 KB schema, 20 revisions. Use a schema when multiple teams consume the stream and you want the broker to reject garbage. Version the payload anyway; a schema does not replace `eventType` + `version` in the event.
 
 A Pub/Sub message can be any bytes. That does not make any bytes a good event.
 
@@ -304,7 +311,7 @@ Name events as facts, not commands:
 
 `sendEmail` tells Notification what to do. When Billing also needs the payment, you publish a second command or you overload the first. `PaymentCompleted` is something that already happened. Anyone who cares can subscribe. Google’s event-driven guidance makes the same distinction: imperative commands make order and ownership matter more than they should; facts do not.
 
-## Pub/Sub vs HTTP
+## HTTP vs Pub/Sub vs Cloud Tasks
 
 Treat this as a heuristic, not a scoreboard. Plenty of systems use both: HTTP for the user-facing write, Pub/Sub for everything that can wait.
 
@@ -319,8 +326,6 @@ Treat this as a heuristic, not a scoreboard. Plenty of systems use both: HTTP fo
 | Event-driven work   | Awkward                 | The native shape                    |
 
 If Service B must say yes or no before Service A commits, use HTTP (or a database transaction in the same service). If Service B, C, and D should react when A already committed, use Pub/Sub.
-
-## Pub/Sub vs Cloud Tasks
 
 Not every background job is an event.
 
@@ -362,23 +367,11 @@ Alert on oldest unacked age and DLT count before you alert on raw publish QPS. P
 
 **7. Not watching backlog and expired acks.** The subscriber dashboard is green because the process is up. `oldest_unacked_message_age_by_region` is 40 minutes. Users already noticed.
 
-## How Google uses this infrastructure
-
-Google’s architectural overview is careful about the wording, and we should be too. Cloud Pub/Sub is built on a core Google infrastructure component that products including **Ads, Search, and Gmail** have used for over a decade to send **over 500 million messages per second**, totaling **over 1 TB/s**. That is a statement about the internal messaging fabric, not a claim that Gmail’s UI is a Pub/Sub tutorial.
-
-What transfers to a system that will never see that throughput:
-
-- **Decoupling** — producers do not block on the full consumer set.
-- **Horizontal scale** — load is per message, not per partition you provision.
-- **Distribution** — publish and subscribe are not tied to one box or one region in the client API.
-- **Resilience** — availability is defined as surviving machine, network, and load failures without the publisher knowing how delivery happened.
-- **Asynchrony** — the product exists because synchronous fan-out at that volume is not an architecture.
-
-You do not need 500 million messages per second to need those properties. You need them as soon as one user request is waiting on work that is not part of the response.
-
 ## Pub/Sub is not there to make the diagram look distributed
 
 Pub/Sub exists to solve concrete problems: asynchronous communication, decoupling, and distribution of events. It does not exist to decorate a monolith with topics.
+
+Cloud Pub/Sub sits on a core Google messaging fabric that products including Ads, Search, and Gmail have used for over a decade. The throughput numbers in Google’s architecture overview are about that fabric, not a claim that Gmail’s UI is a Pub/Sub tutorial. What transfers at any scale is the job: producers should not block on the full consumer set, and a user request should not wait on work that is not part of the response.
 
 ```mermaid
 flowchart TD

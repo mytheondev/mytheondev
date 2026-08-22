@@ -5,8 +5,8 @@ import { z } from "astro/zod";
 const blogSchema = z.object({
   title: z.string(),
   description: z.string(),
-  pubDate: z.coerce.date(),
-  updatedDate: z.coerce.date().optional(),
+  publishedAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
   tags: z.array(z.string()).min(1).max(4),
   minutes: z.number().optional(),
   prerequisites: z.array(z.string()).optional(),
@@ -16,7 +16,9 @@ const blogSchema = z.object({
 const blog = defineCollection({
   loader: glob({
     base: "./src/content/blog",
-    pattern: import.meta.env.DEV ? "**/*.md" : ["**/*.md", "!**/*.es.md"],
+    pattern: import.meta.env.DEV
+      ? ["**/*.md", "!AGENTS.md"]
+      : ["**/*.md", "!**/*.es.md", "!AGENTS.md"],
     generateId: ({ entry }) => {
       if (entry.endsWith(".es.md")) {
         return `es/${entry.slice(0, -".es.md".length)}`;

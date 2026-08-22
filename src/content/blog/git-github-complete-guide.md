@@ -1,10 +1,10 @@
 ---
 title: "Git and GitHub: how they actually work, and how teams use them"
 description: "Git is a local snapshot model. GitHub is the collaboration layer. How working trees, branches, merge, rebase, pull requests, and protection rules fit a real team workflow."
-pubDate: 2025-09-02
-updatedDate: 2026-08-15
+publishedAt: 2025-09-02
+updatedAt: 2025-09-02
 tags: [Git, GitHub]
-minutes: 32
+minutes: 25
 prerequisites:
   - basic command line
 ---
@@ -38,15 +38,6 @@ The confusion is cheap to acquire. `git clone` talks to GitHub, `git push` updat
 Git became the default because it is local-first, snapshot-based, and cheap to branch. Most operations do not need the network. You can commit on a plane, inspect last month's tree without asking a server, and create a feature line in milliseconds because a branch is a pointer, not a copy of the project.
 
 GitHub became the default companion because software is written by more than one person. A remote Git repository can store objects. A team still needs a place to propose a change, require a review, run tests, and refuse a force-push to `main`.
-
-```mermaid
-flowchart TD
-    A[Git] --> B[Version Control]
-    B --> C[GitHub]
-    C --> D[Collaboration]
-    D --> E[CI/CD]
-    E --> F[Deployment]
-```
 
 Set your identity before the first commit. Git records `user.name` and `user.email` on every snapshot. That is Git configuration, not a GitHub login.
 
@@ -108,81 +99,37 @@ That is the whole model. Commands become easier once you ask, for each one: whic
 
 ## The fundamental cycle
 
-Most days you move work through the same five states: edit, inspect, stage, commit, publish. The commands below are the vocabulary for that loop, not a checklist to memorize.
-
-### `git init` and `git clone`
+Most days you move work through the same five states: edit, inspect, stage, commit, publish.
 
 `git init` creates a repository in the current directory. It writes `.git` and, with a modern default, a `main` branch. It does not create a GitHub repository and it does not set a remote.
 
-`git clone <url>` copies an existing repository, checks out the default branch, and records that URL as `origin`. It does not change the remote. It gives you a full local history.
+`git clone <url>` copies an existing repository, checks out the default branch, and records that URL as `origin`. Use `init` when the project starts on your machine. Use `clone` when the source of truth already exists elsewhere. The common mistake is initializing inside a directory you meant to clone, then fighting two unrelated histories.
 
-Use `init` when the project starts on your machine. Use `clone` when the source of truth already exists elsewhere. The common mistake is initializing inside a directory you meant to clone, then fighting two unrelated histories.
+`git status` compares working tree, index, and `HEAD`. It tells you what is modified, what is staged, which branch you are on, and how that branch relates to its upstream bookmark. It does not change anything. Run it before `add`, before `commit`, and before you assume a pull is safe.
 
-### `git status`
+`git add` updates the index. `git add src/auth/google.ts` stages one file. `git add .` stages every change under the current directory that is not ignored. It does not create a commit and it does not send anything to GitHub. The common mistake is `git add .` as a reflex, then discovering a `.env` in the next commit. Stage the change you intend to record.
 
-`status` compares working tree, index, and `HEAD`. It tells you what is modified, what is staged, which branch you are on, and how that branch relates to its upstream bookmark.
-
-It does not change anything. Run it before `add`, before `commit`, and before you assume a pull is safe. The common mistake is committing because the editor looks saved, without checking what Git actually sees.
-
-### `git add`
-
-`git add` updates the index. `git add src/auth/google.ts` stages one file. `git add .` stages every change under the current directory that is not ignored.
-
-It does not create a commit. It does not send anything to GitHub. It does not stage ignored files. The common mistake is `git add .` as a reflex, then discovering a `.env` or a debug dump in the next commit. Stage the change you intend to record.
-
-`.gitignore` is how you keep generated and secret files out of that reflex:
+`.gitignore` keeps generated and secret files out of that reflex:
 
 ```text
 node_modules/
 dist/
-build/
 .env
 .env.local
 *.log
-.DS_Store
 ```
 
-### `git commit`
-
-`git commit` reads the index, writes a commit object, and moves the current branch pointer. The working tree is left alone. The remote is left alone.
+`git commit` reads the index, writes a commit object, and moves the current branch pointer. The working tree and the remote are left alone.
 
 ```bash
 git commit -m "feat: add Google authentication"
 ```
 
-`-m` is convenient. For anything non-trivial, an editor commit with a subject and a body is clearer. `git commit -am` stages tracked files and commits in one step. It will not pick up new untracked files. Treat it as a shortcut, not a habit.
+`git commit -am` stages tracked files and commits in one step. It will not pick up new untracked files. A commit should be a coherent snapshot you would be willing to revert on its own: one reason, not one file. Write the subject in the imperative (`add Google authentication`). [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`) are a message convention, not a Git feature. `git commit --amend` replaces the latest commit; only amend commits that exist on your machine.
 
-The common mistake is committing because the feature "kind of works," then using the next six commits to apologize. A commit should be a coherent snapshot you would be willing to revert on its own.
+`git log --oneline --graph --all` reads the snapshot graph. `git diff` is working tree versus index; `git diff --staged` is index versus `HEAD`. Push publishes commits. Pull is fetch plus integrate. Both are unpacked below.
 
-### `git log` and `git diff`
-
-`git log` reads history. It does not change it.
-
-```bash
-git log --oneline
-git log --graph --oneline --all
-```
-
-`git diff` compares trees. Unqualified `git diff` is working tree versus index: what you have not staged. `git diff --staged` is index versus `HEAD`: what the next commit will contain. That split is the reason staging exists. You can edit five files and commit two.
-
-```bash
-git diff
-git diff --staged
-```
-
-Neither command publishes anything. The common mistake is pushing after looking only at `git status` and never reading the staged diff.
-
-### `git push` and `git pull`
-
-`git push` sends local commits the remote does not have, and updates the remote branch pointer. It does not run tests. It does not create a pull request. It does not change your working tree.
-
-`git pull` is not "download." It is `git fetch` plus an integration step. Fetch updates remote-tracking branches. Integration then tries to move your current branch to include that work. How it integrates depends on configuration: merge, rebase, or fast-forward only.
-
-On a current Git, if you have not chosen a reconcile strategy, `git pull` defaults to fast-forward only: it updates the branch when your history is a strict ancestor of the remote tip, and it refuses when the histories have diverged. That refusal is a feature. It stops Git from inventing a merge you did not ask for.
-
-The common mistake is treating `pull` as a harmless sync and `push` as "upload my folder." Push publishes commits. Pull combines two histories. Those are different operations with different failure modes.
-
-A first-day loop on an existing repo looks like this:
+A first-day loop on an existing repo:
 
 ```bash
 git clone git@github.com:org/payments.git
@@ -194,21 +141,11 @@ git commit -m "feat: add Google authentication"
 git push -u origin HEAD
 ```
 
-`-u` sets the upstream so later `git push` and `git pull` know which remote branch to use. After that, the interesting work is not the loop. It is how you isolate that work from `main`.
+`-u` sets the upstream so later `git push` and `git pull` know which remote branch to use. After that, the interesting work is how you isolate that work from `main`.
 
 ## Branches are lines of work, not copies
 
-Create a branch when the work has a reason to exist independently of `main`: a feature, a fix, an experiment. Do not create a branch because a process document said every change needs a ticket-shaped name.
-
-```text
-main
- │
- ├── feature/google-auth
- │
- ├── feature/payments-webhook
- │
- └── fix/login-redirect
-```
+Create a branch when the work has a reason to exist independently of `main`: a feature, a fix, an experiment.
 
 ```bash
 git branch                     # list local branches
@@ -217,15 +154,11 @@ git switch -c feature/google-auth
 git branch -d feature/google-auth
 ```
 
-`git switch -c` creates the ref and points HEAD at it. `git branch feature/google-auth` only creates the pointer; you are still on the previous branch until you switch. `git switch` replaced the "change branches" half of `git checkout` in Git 2.23. `checkout` still works. For new muscle memory, prefer `switch` for branches and `restore` for files.
+`git switch -c` creates the ref and points HEAD at it. `git branch feature/google-auth` only creates the pointer; you are still on the previous branch until you switch. `git switch` replaced the "change branches" half of `git checkout` in Git 2.23. Prefer `switch` for branches and `restore` for files.
 
-`git branch -d` deletes a local branch that Git considers fully merged. `-D` forces deletion of an unmerged branch. Deleting a branch deletes a pointer, not the commits. Commits remain until nothing references them and Git garbage-collects them. If the work was merged through a pull request, the commits are already reachable from `main`.
+`git branch -d` deletes a local pointer Git considers fully merged. `-D` forces deletion of an unmerged branch. Deleting a branch does not delete commits. If the work was merged through a pull request, those commits are already reachable from `main`.
 
-Name branches so a reviewer can guess the job from the ref: `feature/google-auth`, `fix/login-redirect`, `hotfix/expired-token`. That naming is a team convention. Git does not care.
-
-A **hotfix** is just a branch with urgency: production is wrong, the fix is small, and it should land on the default branch with less ceremony than a feature. Do not invent a second branching strategy for every production bug. If `main` is what you deploy, fix from `main` and open a pull request.
-
-A **tracking branch** is a local branch with an upstream, usually `origin/feature/google-auth`. After `git push -u origin feature/google-auth`, `git status` can tell you whether you are ahead, behind, or diverged. Fetch updates the upstream bookmark. It does not move your local branch.
+Name branches so a reviewer can guess the job: `feature/google-auth`, `fix/login-redirect`, `hotfix/expired-token`. A hotfix is just a branch with urgency; if `main` is what you deploy, fix from `main` and open a pull request. After `git push -u origin feature/google-auth`, the branch tracks `origin/feature/google-auth`. Fetch updates that bookmark. It does not move your local branch.
 
 A branching strategy is excessive when the team spends more time moving commits between long-lived branches than changing the product. Three common models exist. None of them is "the Git way."
 
@@ -236,36 +169,6 @@ A branching strategy is excessive when the team spends more time moving commits 
 | Trunk-based | Short-lived branches, or commits to a shared trunk, behind flags | You integrate continuously and can hide unfinished work         |
 
 [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow) is the one this article uses for the team example: one default branch, topic branches, pull requests, delete the branch when the work is done. Git Flow is a release-train model, not a beginner tutorial. Trunk-based development is a discipline about integration frequency, not a Git feature. Pick the smallest model that matches how you actually ship.
-
-## What makes a commit professional
-
-`git commit -m "message"` records whatever is in the index. It does not make that snapshot useful.
-
-A good commit is small enough to review, coherent enough to revert, and described well enough that `git log --oneline` still makes sense in six months. "Small" does not mean one file. It means one reason. Adding Google sign-in is one reason. Reformatting the entire `auth` folder in the same snapshot is two reasons sharing a hash.
-
-Write the subject in the imperative, as if completing "This commit will…": `add Google authentication`, not `added` or `adding`. Git itself uses that voice in generated messages (`Merge branch…`, `Revert "…"`).
-
-Avoid subjects that only report activity: `fix`, `changes`, `update`, `wip`. They tell a future reader that something happened and hide what. If you need a temporary snapshot while you jump to a bug, say that, then rewrite or squash it before the pull request if the team rewrites topic branches.
-
-Separate refactors from behavior changes. A reviewer who sees a 400-line move and a new OAuth callback in the same diff cannot tell which lines are the risk. Two commits, or two pull requests, make the decision cheaper.
-
-[Conventional Commits](https://www.conventionalcommits.org/) are a message convention, not a Git feature. Git will accept any string. Teams use a prefix so changelogs and automation can classify history:
-
-```text
-feat: add payment webhook
-fix: handle expired access token
-refactor: extract authentication service
-docs: update installation guide
-```
-
-Use the convention if the team already runs tooling on it. Do not treat `feat:` as proof of professionalism. A precise sentence still beats a prefix on a useless subject.
-
-`git commit --amend` replaces the latest commit with a new one. That rewrites history. Amend a commit that exists only on your machine when you forgot a file or mistyped the subject. Do not amend a commit other people may have pulled.
-
-```bash
-git add src/auth/google.test.ts
-git commit --amend --no-edit
-```
 
 ## Merge vs rebase
 
@@ -376,25 +279,6 @@ git push --force-with-lease origin feature/google-auth
 
 Even `--force-with-lease` is a rewrite. Use it on a branch you own, never as a way to "fix" `main`.
 
-## Diffs are comparisons, not a single command
-
-`git diff` always answers "what is different between these two trees?" The arguments pick the trees.
-
-```bash
-git diff                  # working tree vs index
-git diff --staged         # index vs HEAD
-git diff HEAD             # working tree vs HEAD (staged and unstaged)
-git diff main...feature/google-auth
-```
-
-`git diff main..feature/google-auth` (two dots) compares the current tip of `main` to the current tip of the feature branch. If `main` moved, the diff changes even when you did not touch the feature.
-
-`git diff main...feature/google-auth` (three dots) compares the merge base — the common ancestor — to the feature tip. That is "what this branch introduced."
-
-GitHub pull requests use the three-dot comparison. The Files changed tab is showing the work the topic branch added since it diverged, not a live two-tip delta against today's `main`. If `main` has moved a long way, merge or rebase `main` into the topic branch so the pull request is actually based on current code. Until you do that, a green three-dot diff can still fail to merge.
-
-Read the staged diff before every commit. Read the three-dot diff before every pull request. Status tells you that files changed. Diff tells you whether those changes are the ones you meant.
-
 ## Fetch, pull, and push
 
 `git fetch` talks to the remote and updates remote-tracking refs (`origin/main`, `origin/feature/google-auth`). Your current branch, your index, and your working tree do not move. Fetch is how you look before you integrate.
@@ -408,7 +292,7 @@ git log --oneline HEAD..origin/main
 
 `git pull --rebase` fetches and rebases your local commits onto the updated upstream. That avoids an extra merge commit of the form "Merge branch 'main' of origin." It is a good default when the local commits are yours and have not been the base for other people's work. It is a bad surprise when you expected a merge, or when you are on a shared branch.
 
-Do not set `pull.rebase=true` globally just because a blog listed it under "useful defaults." Choose the strategy where you can see it: `git pull --rebase` on a topic branch you own, or an explicit merge when you want the join recorded. If you do configure it, know that every bare `git pull` now rewrites local commits.
+Do not set `pull.rebase=true` globally just because a blog listed it under "useful defaults." Choose the strategy where you can see it: `git pull --rebase` on a topic branch you own, or an explicit merge when you want the join recorded.
 
 `git push` publishes commits the remote lacks. If the remote has commits you lack, a default push is rejected. That rejection means "integrate first," not "force." Fetch, read the incoming commits, then merge or rebase your topic branch. Force-pushing `main` to win the argument deletes someone else's published work.
 
@@ -486,29 +370,11 @@ Conflicts get cheaper when branches are short, when `main` is merged or rebased 
 
 A Git remote can live on any host. GitHub's product is what happens after `git push`: people, review, and policy.
 
-A **repository** on GitHub is a hosted Git repo plus issues, pull requests, actions, settings, and permissions. **Issues** track work. **Discussions** hold conversations that are not yet a change. **Projects** and milestones organize that work. None of those objects exist in Git.
+A **repository** on GitHub is a hosted Git repo plus issues, pull requests, settings, and permissions. **Issues** track work. **Discussions** hold conversations that are not yet a change. None of those objects exist in Git.
 
-**Branches** on GitHub are the same refs Git already has, rendered in a UI. **Pull requests** are GitHub's proposal to integrate one branch into another. **Reviews** attach comments, approvals, and requested changes to that proposal. **Checks** are status results, usually from GitHub Actions, that can block the merge.
+**Branches** on GitHub are the same refs Git already has, rendered in a UI. **Pull requests** are GitHub's proposal to integrate one branch into another. **Reviews** attach comments, approvals, and requested changes to that proposal. **Checks** are status results that can block the merge. GitHub Actions is GitHub's CI: workflows that run those checks. The rest of Actions is out of scope here.
 
-**Tags** are Git objects. **Releases** are GitHub records that point at a tag and can attach notes and binaries. **Actions** run workflows on GitHub-hosted or self-hosted runners. **Environments** add protection and secrets to deployment jobs.
-
-```mermaid
-flowchart TD
-  localGit[Local Git]
-  remoteGit[Remote Git objects]
-  pr[Pull request]
-  review[Code review]
-  checks[Status checks]
-  policies[Branch rules]
-  deploy[Release or deploy]
-  localGit -->|push| remoteGit
-  remoteGit --> pr
-  pr --> review
-  pr --> checks
-  review --> policies
-  checks --> policies
-  policies --> deploy
-```
+A **tag** is a Git ref that points at a commit and is not meant to move (`git tag v1.0.0` then `git push origin v1.0.0`). A **GitHub Release** is a page, notes, and optional assets attached to that tag. [Semantic Versioning](https://semver.org/) is a naming convention, not a Git feature: Git will happily tag `v1.0.0` on a commit that breaks everything.
 
 Git does not know what a reviewer is. GitHub does not replace `git merge`. The platform decides whether a merge is allowed; Git performs the history change when you confirm it.
 
@@ -539,13 +405,15 @@ flowchart TD
 
 Open the pull request when the change is ready for feedback, not when you feel brave enough to merge it. A **draft** pull request signals that the work is visible but not reviewable yet. Convert it to ready when the tests pass and the description can stand on its own.
 
-Ask for **reviewers** who own the code you touched. Review is not a rubber stamp and not a style-only pass. Comments attach to lines. **Requested changes** block merge when the repository requires approvals. **Approve** means the reviewer is willing to see this land, not that they typed every line.
+Ask for **reviewers** who own the code you touched. **Requested changes** block merge when the repository requires approvals. **Approve** means the reviewer is willing to see this land, not that they typed every line.
 
 **Checks** are the automated half of that gate. A failing test suite is a reason to push another commit to the same branch. The pull request updates in place. You do not open a second PR to fix the first.
 
 Merge when review and required checks agree. GitHub can create a merge commit, squash into one commit, or rebase onto the base branch. Those are GitHub merge strategies applied to Git history. The repository settings decide which ones exist. After merge, delete the topic branch. The pull request keeps the discussion. The commits remain on `main`.
 
-A useful description states the problem, the approach, and how you verified it. Link the issue if there is one. GitHub can close that issue automatically when the pull request merges if you use a linking keyword. A 40-file PR with no description is how review becomes theater.
+A useful description states the problem, the approach, and how you verified it. Link the issue if there is one. A 40-file PR with no description is how review becomes theater.
+
+GitHub pull requests use a three-dot diff: merge base versus the feature tip (`git diff main...feature/google-auth`). That is "what this branch introduced," not a live two-tip delta against today's `main`. If `main` has moved a long way, merge or rebase `main` into the topic branch before you treat a green Files changed tab as mergeable.
 
 ## Fork vs branch
 
@@ -585,71 +453,6 @@ A **merge queue** serializes pull requests that target a busy branch so each can
 
 None of this is ceremony for its own sake. It is how a team encodes "do not push to `main`," "do not skip CI," and "do not force-push production" in software instead of in onboarding docs.
 
-## GitHub Actions, briefly
-
-GitHub Actions is GitHub's CI/CD system. A workflow YAML in `.github/workflows` runs when an event happens: a push, a pull request, a schedule, a manual dispatch. Jobs run on runners. Steps run scripts or reusable actions.
-
-For this article, the only job that matters is the one that keeps a red build off `main`.
-
-```mermaid
-flowchart TD
-    trigger["Push or Pull Request"]
-    actions["GitHub Actions"]
-
-    trigger --> actions
-
-    actions --> install["Install"]
-    actions --> lint["Lint"]
-    actions --> test["Test"]
-    actions --> build["Build"]
-```
-
-```yaml
-name: CI
-on:
-  pull_request:
-  push:
-    branches: [main]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm test
-      - run: npm run build
-```
-
-That workflow is not a platform. It is a gate. Required status checks in a ruleset make the gate mandatory. Deploy jobs and environments can come later. Do not start by automating a release pipeline you cannot yet describe in one paragraph.
-
-## Tags and releases
-
-A **tag** is a Git ref that points at a commit (or, for annotated tags, at a tag object that then points at a commit). Unlike a branch, it is not meant to move.
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-A **GitHub Release** is a page, notes, and optional assets attached to that tag. The tag is the immutable name in Git history. The release is how humans and deploy systems find version `v1.0.0`.
-
-```mermaid
-flowchart TD
-    tag["Git tag"]
-    release["GitHub Release"]
-    artifact["Versioned artifact"]
-
-    tag --> release
-    release --> artifact
-```
-
-[Semantic Versioning](https://semver.org/) is a naming convention, not a Git feature: `MAJOR.MINOR.PATCH`. Increment MAJOR when you break compatible consumers, MINOR when you add compatible behavior, PATCH when you fix behavior without adding API. Git will happily tag `v1.0.0` on a commit that breaks everything. The number is a promise you keep, not a hash Git computes.
-
 ## Reflog: history of where HEAD was
 
 `git reflog` shows how HEAD (and, with other arguments, other refs) moved on this machine: commits, checkouts, rebases, resets, merges. It is a local safety log, not a published history, and not shared by `git push`.
@@ -661,50 +464,15 @@ git reflog
 git switch -c recovery HEAD@{2}
 ```
 
-That creates a branch at the position HEAD held two moves ago. You can also `git reset --hard` to a reflog entry if you intend to move the current branch there. Prefer creating a recovery branch first. The point of the reflog is that Git often still has the snapshot you think you destroyed. Uncommitted work that was never staged is a different story: the reflog cannot reconstruct a file that never became an object.
+That creates a branch at the position HEAD held two moves ago. Prefer creating a recovery branch before `git reset --hard` to a reflog entry. The point of the reflog is that Git often still has the snapshot you think you destroyed. Uncommitted work that was never staged is a different story: the reflog cannot reconstruct a file that never became an object.
 
 ## Mistakes that do not scale
 
-Working on `main` is convenient until the first half-finished experiment has to share the branch with a production hotfix. Topic branches are cheap. Use them.
-
-Giant commits and giant pull requests hide risk. A reviewer who must accept 1,200 lines to get a 20-line fix will accept the 1,200 lines. Split the refactor. Keep the feature reviewable.
-
-`git pull` without knowing the reconcile strategy produces surprise merge commits or surprise rebases. Read `git status` after a fetch. Then choose.
-
-`git reset --hard` and `git push --force` are not cleanup. They are history and working-tree rewrites. `--force-with-lease` is safer than `--force` and still inappropriate on a shared default branch.
-
-Mixing unrelated features in one branch makes every conflict and every revert larger. One pull request should be one reason to change `main`.
-
-Skipping the diff and the tests because "CI will catch it" turns review into a second CI you pay in human time. Run the relevant tests before you ask someone else to look.
-
-A branching model with `develop`, `release`, `staging`, and six environment branches is not maturity. It is overhead, unless you actually ship that way. GitHub Flow plus protected `main` is enough for most product teams.
+Topic branches are cheap; working on `main` is not. Giant commits and giant pull requests hide risk. `git pull` without a known reconcile strategy produces surprise merges or rebases. `git reset --hard` and `git push --force` are rewrites, not cleanup; `--force-with-lease` is safer and still wrong on a shared default branch. One pull request should be one reason to change `main`. Run the relevant tests before you ask someone else to look. GitHub Flow plus protected `main` is enough for most product teams; extra long-lived environment branches are overhead unless you actually ship that way.
 
 ## A realistic loop: Google authentication
 
-The team needs Google sign-in. `main` is protected. CI runs lint and tests on pull requests. You have write access to the repository, so you use a branch, not a fork.
-
-```mermaid
-flowchart TD
-    main[main]
-    feature[feature/google-auth]
-
-    main --> feature
-
-    feature --> implementation[Implementation]
-    implementation --> tests[Tests]
-    tests --> commit[Commit]
-    commit --> push[Push]
-
-    push --> pr[Pull Request]
-
-    pr --> review[Review]
-    pr --> ci[CI]
-
-    review --> merge[Merge]
-    ci --> merge
-
-    merge --> main
-```
+The team needs Google sign-in. `main` is protected. CI runs lint and tests on pull requests. You have write access, so you use a branch, not a fork.
 
 ```bash
 git switch main
@@ -714,7 +482,7 @@ git switch -c feature/google-auth
 
 `git pull` here should fast-forward: you have no local commits on `main`. If it refuses, stop and look. Do not force `main` to match a guess.
 
-Implement the callback, the user mapping in `UserService`, and the tests. Then inspect what Git sees, not what the editor tab suggests:
+Implement the callback, the user mapping in `UserService`, and the tests. Then inspect what Git sees:
 
 ```bash
 git status
@@ -724,9 +492,9 @@ git commit -m "feat: add Google authentication"
 git push -u origin feature/google-auth
 ```
 
-On GitHub, open a pull request from `feature/google-auth` into `main`. Describe the callback URL, the new user fields, and the tests you ran. Mark it ready, not draft, when the suite is green locally. Request the owner of `src/auth`. Wait for the Actions workflow and the review.
+On GitHub, open a pull request from `feature/google-auth` into `main`. Describe the callback URL, the new user fields, and the tests you ran. Request the owner of `src/auth`. Wait for CI and the review.
 
-If `main` moved, update the topic branch before merge:
+If `main` moved, update the topic branch before merge. Rebase is acceptable because this is your topic branch:
 
 ```bash
 git fetch origin
@@ -734,7 +502,7 @@ git rebase origin/main
 git push --force-with-lease
 ```
 
-Rebase is acceptable here because this is your topic branch. The force-with-lease updates the pull request commits. Reviewers look at the new history. CI runs again.
+The force-with-lease updates the pull request commits. Reviewers look at the new history. CI runs again.
 
 When the review is approved and the required check is green, merge on GitHub. Delete `feature/google-auth` on the remote. Locally:
 
@@ -745,112 +513,6 @@ git branch -d feature/google-auth
 ```
 
 That is the whole professional loop. The commands are short because the model did the work: a pointer, a few snapshots, a hosted comparison, and a policy that refused to let you skip the review.
-
-## Quick reference
-
-Only commands that earn their place. Each one maps to a job from the sections above.
-
-### Start
-
-```bash
-git init
-git clone <url>
-```
-
-### Inspect
-
-```bash
-git status
-git log --oneline --graph --all
-git diff
-git diff --staged
-git diff main...HEAD
-```
-
-### Record
-
-```bash
-git add <path>
-git commit
-```
-
-### Branches
-
-```bash
-git branch
-git switch <name>
-git switch -c <name>
-git merge <name>
-git rebase <base>
-git branch -d <name>
-```
-
-### Remotes
-
-```bash
-git remote -v
-git fetch
-git pull
-git pull --rebase
-git push
-git push -u origin HEAD
-```
-
-### Recover
-
-```bash
-git restore <path>
-git restore --staged <path>
-git reset --soft HEAD~1
-git revert <commit>
-git reflog
-git merge --abort
-git rebase --abort
-```
-
-## FAQ
-
-**Are Git and GitHub the same thing?**
-No. Git is the version control system on your machine. GitHub is a hosting and collaboration product that stores Git repositories and adds pull requests, review, and automation.
-
-**Do I need GitHub to use Git?**
-No. Git works locally and with any remote: GitLab, Bitbucket, a bare repo on a VM, or no remote at all.
-
-**What is the difference between `git pull` and `git fetch`?**
-`fetch` updates remote-tracking branches and stops. `pull` fetches and then integrates those commits into your current branch, using merge, rebase, or fast-forward only depending on configuration.
-
-**When should I merge, and when should I rebase?**
-Merge when you want to record that two histories joined, especially on shared branches. Rebase when you want to replay local, unshared commits onto a newer base. Do not rebase commits other people may have used as a starting point.
-
-**What is the difference between reset and revert?**
-`reset` moves a branch pointer and can discard or unstage work. That rewrites the branch. `revert` adds a new commit that undoes an earlier one. Use revert on published history.
-
-**What do I do with a merge conflict?**
-Read `git status`, edit the marked files until both intents are handled, `git add` the result, then `git commit` or `git rebase --continue`. Abort with `git merge --abort` or `git rebase --abort` if you should not have started the integration.
-
-**What is `origin`?**
-The default name of the remote created by `git clone`. It is a nickname for a URL, not a special kind of server.
-
-**What is the difference between a branch and a fork?**
-A branch is a pointer inside one repository. A fork is a separate GitHub repository copied from another. Use a branch when you can push to the repo. Use a fork when you cannot.
-
-**What happens when I push?**
-Git sends objects the remote is missing and updates the remote branch to your tip, if the update is a fast-forward or you explicitly force it. It does not create a pull request and does not run your test suite unless a hook or Action does.
-
-**What happens if I delete a branch?**
-The pointer goes away. Commits stay reachable if another ref (usually `main` after a merge) still points at them. GitHub also keeps the pull request history.
-
-**Can I recover a commit I reset away?**
-Often, yes, if it was committed. `git reflog` still names recent HEAD positions on that machine. Uncommitted, unstaged edits are not in the object database.
-
-**Is Git Flow required?**
-No. It is one release-oriented branching model. Many product teams use GitHub Flow or trunk-based development instead.
-
-**Should I make small commits?**
-Yes, when "small" means one coherent reason. A pile of `wip` snapshots is not the same thing. Rewrite or squash those before a shared review if the team allows it on topic branches.
-
-**When should I open a pull request?**
-When the change is ready for feedback or merge: a clear description, a focused diff, and tests you have already run. Open a draft earlier if you want visibility without review.
 
 ## Sources
 

@@ -6,12 +6,12 @@ interface Props {
   href: string;
   title: string;
   description: string;
-  pubDate: Date;
+  publishedAt: Date;
   minutes: number;
   tags: string[];
 }
 
-const { href, title, description, pubDate, minutes, tags } = Astro.props;
+const { href, title, description, publishedAt, minutes, tags } = Astro.props;
 ---
 
 <article class="card-hover group rounded-lg border border-white/10 p-5">
@@ -20,7 +20,7 @@ const { href, title, description, pubDate, minutes, tags } = Astro.props;
   </h3>
   <p class="mt-2 line-clamp-2 text-sm leading-relaxed text-muted">{description}</p>
   <p class="mt-2 text-xs text-muted">
-    <FormattedDate date={pubDate} />
+    <FormattedDate date={publishedAt} />
     <span aria-hidden="true"> · </span>
     {minutes} min
   </p>

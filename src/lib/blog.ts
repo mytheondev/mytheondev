@@ -82,7 +82,8 @@ export function relatedPosts(current: BlogPost, all: BlogPost[]) {
     }))
     .filter((entry) => entry.score > 0)
     .sort(
-      (a, b) => b.score - a.score || b.post.data.pubDate.valueOf() - a.post.data.pubDate.valueOf(),
+      (a, b) =>
+        b.score - a.score || b.post.data.publishedAt.valueOf() - a.post.data.publishedAt.valueOf(),
     )
     .slice(0, 3)
     .map((entry) => entry.post);
@@ -90,7 +91,7 @@ export function relatedPosts(current: BlogPost, all: BlogPost[]) {
 
 export function adjacentPosts(current: BlogPost, all: BlogPost[]) {
   const ordered = [...sameLocalePosts(current, all)].sort(
-    (a, b) => a.data.pubDate.valueOf() - b.data.pubDate.valueOf(),
+    (a, b) => a.data.publishedAt.valueOf() - b.data.publishedAt.valueOf(),
   );
   const index = ordered.findIndex((post) => post.id === current.id);
   return {

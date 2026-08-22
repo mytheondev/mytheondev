@@ -1,17 +1,17 @@
 ---
 title: "CORS, rate limiting, and Helmet in NestJS: three layers, not a security strategy"
 description: "What CORS, @nestjs/throttler, and Helmet actually protect in a NestJS API — and why none of them replace authentication, authorization, or input validation."
-pubDate: 2026-04-14
-updatedDate: 2026-08-15
+publishedAt: 2026-04-14
+updatedAt: 2026-04-14
 tags: [NestJS, API, Security]
-minutes: 25
+minutes: 22
 prerequisites:
   - NestJS
   - TypeScript
   - REST
 related:
   - openapi-swagger-nestjs
-  - structured-logging-transaction-ids-nestjs
+  - structured-logging-transaction-id-nestjs
 ---
 
 The SPA lives at `https://app.example.com`. The NestJS API lives at `https://api.example.com`. On localhost both were `:3000`, so nobody noticed. In staging the browser blocks `POST /auth/login`. Someone sets `origin: true`. Login works. A week later the same route is being hit a few hundred times a minute from a script that never opens a browser. Helmet is installed. Three Cloud Run instances each think the client is still under the limit.
@@ -28,12 +28,12 @@ A public HTTP API will receive traffic you did not design for. Some of it is a b
 
 Typical pressure looks like this:
 
-- requests from origins you do not own;
-- bursts against `/auth/login` and `/auth/password-reset`;
-- scraping of list endpoints;
-- credential stuffing;
-- clients that ignore CORS entirely (`curl`, Postman, a VPS);
-- traffic that arrives through a CDN, so every request appears to share one IP unless you read forwarded headers carefully;
+- requests from origins you do not own.
+- bursts against `/auth/login` and `/auth/password-reset`.
+- scraping of list endpoints.
+- credential stuffing.
+- clients that ignore CORS entirely (`curl`, Postman, a VPS).
+- traffic that arrives through a CDN, so every request appears to share one IP unless you read forwarded headers carefully.
 - replicas that each keep their own in-memory counter.
 
 The useful response is not “install three packages.” It is to stack controls that fail closed, and to know what each control does **not** do.
@@ -177,10 +177,10 @@ In development, put `http://localhost:5173` (or whatever the SPA uses) in `CORS_
 
 Rate limiting is not “60 requests per minute.” It is a cap on how much work one **tracker** — usually an IP, sometimes a user id — may ask of a route in a window. It reduces:
 
-- credential stuffing and password spraying on `/login`;
-- abuse of expensive or state-changing endpoints;
-- naive scraping;
-- automated hammering;
+- credential stuffing and password spraying on `/login`.
+- abuse of expensive or state-changing endpoints.
+- naive scraping.
+- automated hammering.
 - some application-level denial of service (CPU, DB, upstream quotas).
 
 It does not stop a distributed botnet that has more IPs than your limit. It does not fix a missing authorization check. It does not replace a WAF or a quota at the load balancer. OWASP lists unrestricted resource consumption as [API4:2023](https://owasp.org/API-Security/editions/2023/en/0x11-t10/). Throttling is one control for that class. It is not the only one.
@@ -260,18 +260,7 @@ export class HealthController {
 
 `@SkipThrottle()` without an object skips the unnamed/`default` set. If you name throttlers `short` and `long`, you must pass those keys or the skip does nothing. The [throttler README](https://github.com/nestjs/throttler) is explicit about that.
 
-Example budgets — examples, not defaults to copy into every app:
-
-```text
-GET  /products          100 req / min
-POST /orders             20 req / min   + authentication
-GET  /profile            60 req / min   + authentication
-POST /auth/login          5 req / min
-POST /auth/password-reset 3 req / min
-GET  /health              skip
-```
-
-Tighten routes that create sessions, send email, or charge a card. Relax read-mostly catalog routes. Skip liveness probes so Kubernetes does not 429 itself.
+Tighten routes that create sessions, send email, or charge a card. Relax read-mostly catalog routes. Skip liveness probes so Kubernetes does not 429 itself. Example budgets live in the route-by-route table below — examples, not defaults to copy into every app.
 
 `getTracker` is how the guard decides **who** is being limited. The default is the socket IP. After authentication you can key on user id for logged-in abuse and fall back to IP for anonymous traffic. Do that in a subclass, and do not put emails or tokens in the tracker string — they will end up in storage and in logs.
 
@@ -431,36 +420,7 @@ If you mount Swagger UI on the same app, this CSP will break it. Relax `scriptSr
 
 ## A secure API does not depend only on headers
 
-This is the part that the three npm packages cannot say for you.
-
-```mermaid
-flowchart TD
-    cors["CORS"] --> corsDesc["Browser security"]
-
-    headers["Security Headers"] --> headersDesc["Browser security / defense in depth"]
-
-    rate["Rate Limiting"] --> rateDesc["Abuse protection"]
-
-    auth["Authentication"] --> authDesc["Identity"]
-
-    authorization["Authorization"] --> authorizationDesc["Permissions"]
-
-    validation["Input Validation"] --> validationDesc["Data integrity"]
-
-    waf["WAF / CDN / Firewall"] --> wafDesc["Infrastructure protection"]
-```
-
-CORS answers: may this **page** read that response? A stolen token used from a server never asks.
-
-Helmet answers: if a browser renders this, may it be framed, sniffed, or mixed with active content? A SQL injection does not read `X-Frame-Options`.
-
-Throttler answers: has this tracker called too often? A single authorized request that deletes the wrong row is still one request.
-
-Authentication answers: who is this? Nest’s [authentication](https://docs.nestjs.com/security/authentication) chapter is that job.
-
-Authorization answers: may they do this to **this** resource? [Guards and roles](https://docs.nestjs.com/security/authorization) are that job. A valid JWT on `GET /orders/someone-elses-id` is an IDOR, not a CORS bug.
-
-Validation answers: is this body a date, an email, a UUID within range? [`ValidationPipe`](https://docs.nestjs.com/techniques/validation) is that job. Rate limiting a malformed payload still wastes a parse.
+This is the part that the three npm packages cannot say for you. The stack at the top of the article is the map; the table is the job split.
 
 | Mechanism        | Problem it solves                   | Risks it reduces                                             | It does not stop                                    |
 | ---------------- | ----------------------------------- | ------------------------------------------------------------ | --------------------------------------------------- |
@@ -470,42 +430,13 @@ Validation answers: is this body a date, an email, a UUID within range? [`Valida
 | Authentication   | Establishing identity               | Anonymous access                                             | An authenticated user doing something they must not |
 | Authorization    | Enforcing permissions on a resource | IDOR / BOLA, privilege escalation                            | Infra abuse, unvalidated input, missing rate limits |
 
-If you only remember one row: **CORS is not an access-control list for the internet.**
+If you only remember one row: **CORS is not an access-control list for the internet.** Authentication is [Nest’s authentication chapter](https://docs.nestjs.com/security/authentication). Authorization is [guards and roles](https://docs.nestjs.com/security/authorization) — a valid JWT on `GET /orders/someone-elses-id` is an IDOR, not a CORS bug. Validation is [`ValidationPipe`](https://docs.nestjs.com/techniques/validation).
 
-## Layered defense architecture
-
-A setup that matches how these APIs are actually deployed:
-
-```mermaid
-flowchart TD
-    internet["Internet"]
-    cdn["CDN / WAF"]
-    lb["Load Balancer"]
-    nest["NestJS<br/>API"]
-
-    auth["Auth"]
-    rate["Rate Limit"]
-    validation["Validation"]
-    redis["Redis"]
-
-    internet --> cdn
-    cdn --> lb
-    lb --> nest
-
-    nest --> auth
-    nest --> rate
-    nest --> validation
-
-    rate --> redis
-```
-
-The CDN/WAF absorbs volumetric noise, TLS, and some known-bad patterns before they become NestJS event-loop work. The load balancer terminates connections and forwards the hop list you decided to trust. NestJS applies CORS and Helmet on the way in and out, then the throttler guard, then authn/authz, then `ValidationPipe`, then the service. Redis holds a shared counter when there is more than one replica.
-
-Each box fails closed for **its** threat. The WAF will not notice that `role` is writable on `PATCH /users/me`. Redis will not notice that Swagger UI is public. Helmet will not notice that `/auth/login` has no backoff.
+In production that stack sits behind a CDN/WAF and a load balancer. Redis holds the shared counter when there is more than one replica. Each box fails closed for **its** threat. The WAF will not notice that `role` is writable on `PATCH /users/me`. Redis will not notice that Swagger UI is public. Helmet will not notice that `/auth/login` has no backoff.
 
 ## Recommended production configuration
 
-One coherent example. Origins, hop counts, and limits come from the environment. Secrets do not appear in source.
+Wire the pieces already shown. Origins, hop counts, and limits come from the environment. Secrets do not appear in source.
 
 ```bash
 # example values — not a universal policy
@@ -518,140 +449,13 @@ THROTTLE_LIMIT=60
 # REDIS_URL=redis://redis:6379
 ```
 
-```ts
-// main.ts
-import { ValidationPipe } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { NestFactory } from "@nestjs/core";
-import type { NestExpressApplication } from "@nestjs/platform-express";
-import helmet from "helmet";
-import { AppModule } from "./app.module";
+Production knobs — not a second copy of `main.ts` / `app.module.ts`:
 
-function parseOrigins(raw: string | undefined): string[] {
-  return (raw ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
-
-async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  const config = app.get(ConfigService);
-  const isProduction = config.get<string>("NODE_ENV") === "production";
-  const allowlist = parseOrigins(config.get<string>("CORS_ORIGINS"));
-
-  app.use(
-    helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'none'"],
-          frameAncestors: ["'none'"],
-          upgradeInsecureRequests: isProduction ? [] : null,
-        },
-      },
-      crossOriginResourcePolicy: { policy: "cross-origin" },
-      xFrameOptions: { action: "deny" },
-      strictTransportSecurity: isProduction ? { maxAge: 31536000, includeSubDomains: true } : false,
-    }),
-  );
-
-  app.enableCors({
-    origin: (
-      origin: string | undefined,
-      callback: (err: Error | null, allow?: boolean) => void,
-    ) => {
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-      if (allowlist.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(null, false);
-    },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: config.get<string>("CORS_CREDENTIALS") === "true",
-  });
-
-  const hops = Number(config.get<string>("TRUST_PROXY_HOPS") ?? "");
-  if (Number.isInteger(hops) && hops > 0) {
-    app.set("trust proxy", hops);
-  }
-
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
-
-  await app.listen(config.get<string>("PORT") ?? 3000);
-}
-
-bootstrap();
-```
-
-```ts
-// app.module.ts
-import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { APP_GUARD } from "@nestjs/core";
-import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
-
-@Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        throttlers: [
-          {
-            name: "default",
-            ttl: Number(config.get("THROTTLE_TTL_MS", 60_000)),
-            limit: Number(config.get("THROTTLE_LIMIT", 60)),
-          },
-        ],
-        errorMessage: "Too many requests",
-        // storage: new ThrottlerStorageRedisService(config.get("REDIS_URL")),
-      }),
-    }),
-  ],
-  providers: [
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
-  ],
-})
-export class AppModule {}
-```
-
-```ts
-// auth.controller.ts — tighter windows on the routes worth attacking
-@Throttle({ default: { limit: 5, ttl: minutes(1) } })
-@Post("login")
-login(@Body() dto: LoginDto) {
-  return this.auth.login(dto);
-}
-
-@Throttle({ default: { limit: 3, ttl: minutes(1) } })
-@Post("password-reset")
-passwordReset(@Body() dto: PasswordResetDto) {
-  return this.auth.passwordReset(dto);
-}
-```
-
-```ts
-// health.controller.ts
-@Controller("health")
-@SkipThrottle({ default: true })
-export class HealthController {
-  @Get()
-  check() {
-    return { status: "ok" };
-  }
-}
-```
-
-Uncomment Redis storage when there is more than one replica. Keep `@SkipThrottle` on probes. Keep `@Throttle` overrides on login and password reset. Keep authentication and authorization on `/orders` and `/profile` — they are not in this file on purpose. This snippet does not implement them, and Helmet will not either.
+- Helmet, then CORS, in `bootstrap()`, using the allowlist callback and Helmet options already shown. Drive them with `CORS_ORIGINS`, `CORS_CREDENTIALS`, and `NODE_ENV`.
+- `trust proxy` from `TRUST_PROXY_HOPS` (the hop count you measured). Bind `ThrottlerBehindProxyGuard` when Fastify or extra hops need `req.ips`.
+- `ThrottlerModule.forRootAsync` with `THROTTLE_TTL_MS` / `THROTTLE_LIMIT`, `APP_GUARD`, and Redis storage when there is more than one replica.
+- `@Throttle` on login (5/min) and password reset (3/min); `@SkipThrottle` on health probes.
+- Global `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`. Authentication and authorization on `/orders` and `/profile` are still not Helmet’s job.
 
 Development can use a looser `THROTTLE_LIMIT`, `http://localhost:5173` in `CORS_ORIGINS`, and no `TRUST_PROXY_HOPS`. It should not use `origin: true`, and it should not disable the guard “to move faster” on the same code path you will deploy.
 
@@ -672,14 +476,6 @@ Development can use a looser `THROTTLE_LIMIT`, `http://localhost:5173` in `CORS_
 **Configuration: origins, hop counts, and limits in source.** They change per environment. Secrets never belong next to them. `CORS_ORIGINS=*` in a `.env.production` you copied from `.env.example` is still a wildcard.
 
 ## A first-party API, route by route
-
-```mermaid
-flowchart TD
-    frontend["Frontend<br/>app.example.com"]
-    api["NestJS API<br/>api.example.com"]
-
-    frontend -->|HTTPS| api
-```
 
 | Route                       | CORS                               | Rate limit (example)              | Authn / authz                 | Why                                                     |
 | --------------------------- | ---------------------------------- | --------------------------------- | ----------------------------- | ------------------------------------------------------- |
@@ -711,36 +507,23 @@ A blocked request that you do not log is indistinguishable from a correctly idle
 
 The same shape works for a CORS rejection you handle in the origin callback (use a dedicated `event`, and still skip any header that carries credentials).
 
-Those lines tell you whether `/auth/login` is being stuffed, whether a deploy set `TRUST_PROXY_HOPS` wrong (every 429 shares one CDN IP, or none do), whether a limit is too tight (real users, many routes, one office NAT), and whether a replica is enforcing a different budget than its peers. How to put `requestId` on every line — and how that differs from a business `transactionId` — is [Structured logging in NestJS](/blog/structured-logging-transaction-ids-nestjs/).
+Those lines tell you whether `/auth/login` is being stuffed, whether a deploy set `TRUST_PROXY_HOPS` wrong (every 429 shares one CDN IP, or none do), whether a limit is too tight (real users, many routes, one office NAT), and whether a replica is enforcing a different budget than its peers. How to put `requestId` on every line — and how that differs from a business `transactionId` — is [Structured logging in NestJS](/blog/structured-logging-transaction-id-nestjs/).
 
 A global exception filter that already formats Nest errors can log when `status === 429` and return the same stable body the throttler emits. Do not add a second, chatty message that leaks `ttl` internals to the client.
 
 ## Security checklist
 
-- CORS uses an explicit allowlist, not `*` or `origin: true`, unless the API is intentionally public and uncredentialed
-- `credentials` is on only if the browser must send cookies (or a credentialed fetch); never paired with `*`
-- Helmet is registered before other middleware
-- Headers were reviewed for a JSON API versus HTML / Swagger / Playground
-- `Cross-Origin-Resource-Policy` does not block the real frontend
-- Rate limiting is global **and** a `ThrottlerGuard` is bound
-- Login, password reset, and other abuse magnets have stricter limits
-- Health checks are skipped on purpose
-- `trust proxy` / `trustProxy` matches the hop count you actually have
-- Storage is shared (for example Redis) when there is more than one replica
-- Authentication is implemented on routes that are not public
-- Authorization checks the resource, not only the token
-- Input validation is on (`ValidationPipe` or equivalent)
-- Security events (`429`, unexpected origin) are logged without secrets
-- Origins, limits, and secrets come from the environment
-- HTTPS is the only public listener; HSTS is enabled only then
+Ship gate — the mistakes section is the _why_; this is the _before you deploy_:
+
+- CORS allowlist from the environment; `credentials` only with a specific origin
+- `ThrottlerGuard` bound; login and password reset stricter; probes skipped; Redis when you have replicas; `trust proxy` hop count measured
+- Helmet before other middleware; CORP does not block the SPA; CSP reviewed for JSON vs `/docs`
+- Authentication, object-level authorization, and `ValidationPipe` on the routes that need them
+- `429` and unexpected origins logged without secrets; HTTPS only; HSTS only then
 
 ## Three layers, one strategy
 
-CORS is a browser conversation about origins. Helmet is a browser conversation about how to treat a response. `@nestjs/throttler` is an application conversation about how often a tracker may come back. Production adds a hop count you measured, a store the replicas share, and limits that follow the abuse, not the happy path.
-
-The API is not “secure” when those three compile. It is closer to production when each layer has an owner, a failure mode you can log, and a neighbor — authentication, authorization, validation, a WAF — that covers what it cannot.
-
-Ship the allowlist, the guard, and the headers. Then go implement the parts this article deliberately did not pretend to implement.
+CORS is a browser conversation about origins. Helmet is a browser conversation about how to treat a response. `@nestjs/throttler` is an application conversation about how often a tracker may come back. Ship the allowlist, the guard, and the headers. Then go implement the parts this article deliberately did not pretend to implement.
 
 ## Sources
 

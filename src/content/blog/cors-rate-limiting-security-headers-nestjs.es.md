@@ -1,17 +1,17 @@
 ---
 title: "CORS, rate limiting y Helmet en NestJS: tres capas, no una estrategia de seguridad"
 description: "Qué protegen realmente CORS, @nestjs/throttler y Helmet en una API NestJS — y por qué ninguno de ellos sustituye a la autenticación, la autorización ni la validación de entrada."
-pubDate: 2026-04-14
-updatedDate: 2026-08-15
+publishedAt: 2026-04-14
+updatedAt: 2026-04-14
 tags: [NestJS, API, Security]
-minutes: 25
+minutes: 23
 prerequisites:
   - NestJS
   - TypeScript
   - REST
 related:
   - openapi-swagger-nestjs
-  - structured-logging-transaction-ids-nestjs
+  - structured-logging-transaction-id-nestjs
 ---
 
 La SPA vive en `https://app.example.com`. La API NestJS vive en `https://api.example.com`. En localhost ambas estaban en `:3000`, así que nadie lo notó. En staging el navegador bloquea `POST /auth/login`. Alguien pone `origin: true`. Login funciona. Una semana después la misma ruta está siendo golpeada unos cientos de veces por minuto desde un script que nunca abre un navegador. Helmet está instalado. Tres instancias de Cloud Run creen cada una que el cliente sigue por debajo del límite.
@@ -24,16 +24,16 @@ CORS decide qué puede leer un **navegador** desde otro origen. Rate limiting de
 
 ## El problema de proteger una API NestJS
 
-Una API HTTP pública recibirá tráfico para el que no diseñaste. Parte viene de un navegador en tu propio frontend. Parte viene de una app móvil. Parte viene de otro servicio. Parte viene de un script.
+Una API HTTP pública recibirá tráfico para el cual no fue diseñada. Parte viene de un navegador en tu propio frontend. Parte viene de una app móvil. Parte viene de otro servicio. Parte viene de un script.
 
 El patrón típico de presión tiene esta forma:
 
-- peticiones desde orígenes que no controlas;
-- ráfagas contra `/auth/login` y `/auth/password-reset`;
-- scraping de endpoints de listado;
-- credential stuffing;
-- clientes que ignoran CORS por completo (`curl`, Postman, una VPS);
-- tráfico que llega a través de un CDN, por lo que cada petición parece compartir una sola IP a menos que leas los headers de reenvío con cuidado;
+- peticiones desde orígenes que no controlas.
+- ráfagas contra `/auth/login` y `/auth/password-reset`.
+- scraping de endpoints de listado.
+- credential stuffing.
+- clientes que ignoran CORS por completo (`curl`, Postman, una VPS).
+- tráfico que llega a través de un CDN, por lo que cada petición parece compartir una sola IP a menos que leas los headers de reenvío con cuidado.
 - réplicas que mantienen cada una su propio contador en memoria.
 
 La respuesta útil no es «instala tres paquetes». Es apilar controles que fallen de forma cerrada, y saber qué es lo que cada control **no** hace.
@@ -85,13 +85,13 @@ Access-Control-Request-Headers: content-type, authorization
 
 La API responde con lo que permitirá:
 
-| Header                             | Significado                                                      |
-| ---------------------------------- | ---------------------------------------------------------------- |
-| `Access-Control-Allow-Origin`      | Qué origen puede leer la respuesta                               |
-| `Access-Control-Allow-Methods`     | Qué métodos puede usar la petición real                          |
-| `Access-Control-Allow-Headers`     | Qué headers de petición puede enviar la petición real            |
-| `Access-Control-Allow-Credentials` | Si puede usarse una petición con credenciales (cookies, certs)   |
-| `Access-Control-Max-Age`           | Cuánto puede cachear el navegador este preflight                 |
+| Header                             | Significado                                                    |
+| ---------------------------------- | -------------------------------------------------------------- |
+| `Access-Control-Allow-Origin`      | Qué origen puede leer la respuesta                             |
+| `Access-Control-Allow-Methods`     | Qué métodos puede usar la petición real                        |
+| `Access-Control-Allow-Headers`     | Qué headers de petición puede enviar la petición real          |
+| `Access-Control-Allow-Credentials` | Si puede usarse una petición con credenciales (cookies, certs) |
+| `Access-Control-Max-Age`           | Cuánto puede cachear el navegador este preflight               |
 
 Si el preflight falla, el `POST` real nunca sale del navegador. `curl` nunca envía un preflight. Esa diferencia es todo el modelo de seguridad.
 
@@ -177,28 +177,28 @@ En desarrollo, pon `http://localhost:5173` (o lo que use la SPA) en `CORS_ORIGIN
 
 Rate limiting no es «60 peticiones por minuto». Es un tope sobre cuánto trabajo un **tracker** — normalmente una IP, a veces un user id — puede pedir a una ruta en una ventana. Reduce:
 
-- credential stuffing y password spraying en `/login`;
-- abuso de endpoints costosos o que cambian estado;
-- scraping ingenuo;
-- martilleo automatizado;
+- credential stuffing y password spraying en `/login`.
+- abuso de endpoints costosos o que cambian estado.
+- scraping ingenuo.
+- martilleo automatizado.
 - algo de denegación de servicio a nivel de aplicación (CPU, DB, cuotas upstream).
 
 No detiene una botnet distribuida que tiene más IPs que tu límite. No arregla una comprobación de autorización que falta. No sustituye a un WAF ni a una cuota en el load balancer. OWASP lista el consumo de recursos sin restricción como [API4:2023](https://owasp.org/API-Security/editions/2023/en/0x11-t10/). Throttling es un control para esa clase. No es el único.
 
 `@nestjs/throttler` rastrea hits en storage y rechaza la siguiente petición con `429 Too Many Requests` cuando el tracker supera `limit` dentro de `ttl`. Desde la v5, `ttl` está en **milisegundos**. El paquete exporta `seconds`, `minutes`, `hours`, `days` y `weeks` si prefieres no escribir `60_000` a mano.
 
-| Opción          | Función                                                             |
-| --------------- | ------------------------------------------------------------------- |
-| `limit`         | Cuántas peticiones puede hacer el tracker en la ventana             |
-| `ttl`           | Duración de la ventana, en milisegundos                             |
-| `blockDuration` | Cuánto seguir rechazando tras superar el límite, en milisegundos    |
-| `tracker`       | La clave contra la que cuentas — por defecto `req.ip`               |
+| Opción          | Función                                                          |
+| --------------- | ---------------------------------------------------------------- |
+| `limit`         | Cuántas peticiones puede hacer el tracker en la ventana          |
+| `ttl`           | Duración de la ventana, en milisegundos                          |
+| `blockDuration` | Cuánto seguir rechazando tras superar el límite, en milisegundos |
+| `tracker`       | La clave contra la que cuentas — por defecto `req.ip`            |
 
-`blockDuration` es opcional. Sin él, la ventana misma es el backoff. Con él, un cliente que tripa el límite queda bloqueado durante un intervalo separado. Úsalo en login y password reset, no en un catálogo público, a menos que hayas medido el coste de falsos positivos.
+`blockDuration` es opcional. Sin él, la ventana misma es el backoff. Con él, un cliente que supere el límite permanecerá bloqueado durante un intervalo independiente. Úsalo en login y password reset, no en un catálogo público, a menos que hayas medido el coste de falsos positivos.
 
 ### Configuración global
 
-Instalar el módulo no es suficiente. **Nada se limita hasta que corre un `ThrottlerGuard`.** Los propios docs de Nest lo enlazan con `APP_GUARD`.
+Instalar el módulo no es suficiente. **Nada se limita hasta que corre un `ThrottlerGuard`.** La propia documentación de Nest lo vincula con `APP_GUARD`.
 
 ```ts
 import { Module } from "@nestjs/common";
@@ -260,18 +260,7 @@ export class HealthController {
 
 `@SkipThrottle()` sin objeto salta el set sin nombre/`default`. Si nombras throttlers `short` y `long`, debes pasar esas claves o el skip no hace nada. El [README de throttler](https://github.com/nestjs/throttler) es explícito al respecto.
 
-Presupuestos de ejemplo — ejemplos, no defaults para copiar en toda app:
-
-```text
-GET  /products          100 req / min
-POST /orders             20 req / min   + autenticación
-GET  /profile            60 req / min   + autenticación
-POST /auth/login          5 req / min
-POST /auth/password-reset 3 req / min
-GET  /health              skip
-```
-
-Aprieta las rutas que crean sesiones, envían email, o cobran una tarjeta. Relaja las rutas de catálogo mayormente de lectura. Salta las sondas de liveness para que Kubernetes no se haga 429 a sí mismo.
+Aprieta las rutas que crean sesiones, envían email, o cobran una tarjeta. Relaja las rutas de catálogo mayormente de lectura. Salta las sondas de liveness para que Kubernetes no se haga 429 a sí mismo. Los presupuestos de ejemplo están en la tabla ruta por ruta más abajo — ejemplos, no defaults para copiar en toda app.
 
 `getTracker` es cómo el guard decide **quién** está siendo limitado. El default es la IP del socket. Tras la autenticación puedes particionar por user id para abuso de usuarios logueados y caer de vuelta a IP para tráfico anónimo. Hazlo en una subclase, y no pongas emails ni tokens en el string del tracker — acabarán en storage y en logs.
 
@@ -371,14 +360,14 @@ Un CDN o API gateway puede aplicar un límite grueso antes de que la petición l
 
 Los headers de seguridad son instrucciones para un **navegador**. No autentican al llamante. No corren en `curl`. OWASP es directo sobre esto: si la API solo es consumida por clientes no-navegador, la mayoría de estos headers no hacen nada. Aún así vale la pena enviarlos en cualquier respuesta que un navegador pueda manejar — incluyendo una página de error, un body JSON volcado y renderizado como HTML por un navegador confundido, o Swagger UI en el mismo host.
 
-| Header                      | Problema que aborda                             | Notas para una API JSON                                                                               |
-| --------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `Content-Security-Policy`   | Qué puede cargar el documento y quién lo enmarca | `default-src 'none'` y `frame-ancestors 'none'` son la baseline REST de OWASP. Un CSP completo es para HTML. |
-| `X-Content-Type-Options`    | MIME sniffing (`nosniff`)                       | Útil incluso cuando todo body es `application/json`.                                                  |
-| `Referrer-Policy`           | Qué ponen otras peticiones en `Referer`         | Bajo impacto en JSON; Helmet usa `no-referrer` por defecto.                                           |
-| `Strict-Transport-Security` | Los navegadores deben usar HTTPS en este host   | Solo después de que el host sea HTTPS en todas partes, incluyendo subdominios que hayas listado.      |
-| `X-Frame-Options`           | Clickjacking vía `<frame>` / `<iframe>`         | Legacy. Prefiere CSP `frame-ancestors`. OWASP aún quiere `DENY` en APIs.                              |
-| `Permissions-Policy`        | Qué características del navegador puede usar el documento | Helmet no lo establece hoy. Añádelo cuando sirvas HTML.                                        |
+| Header                      | Problema que aborda                                       | Notas para una API JSON                                                                                      |
+| --------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `Content-Security-Policy`   | Qué puede cargar el documento y quién lo enmarca          | `default-src 'none'` y `frame-ancestors 'none'` son la baseline REST de OWASP. Un CSP completo es para HTML. |
+| `X-Content-Type-Options`    | MIME sniffing (`nosniff`)                                 | Útil incluso cuando todo body es `application/json`.                                                         |
+| `Referrer-Policy`           | Qué ponen otras peticiones en `Referer`                   | Bajo impacto en JSON; Helmet usa `no-referrer` por defecto.                                                  |
+| `Strict-Transport-Security` | Los navegadores deben usar HTTPS en este host             | Solo después de que el host sea HTTPS en todas partes, incluyendo subdominios que hayas listado.             |
+| `X-Frame-Options`           | Clickjacking vía `<frame>` / `<iframe>`                   | Legacy. Prefiere CSP `frame-ancestors`. OWASP aún quiere `DENY` en APIs.                                     |
+| `Permissions-Policy`        | Qué características del navegador puede usar el documento | Helmet no lo establece hoy. Añádelo cuando sirvas HTML.                                                      |
 
 El sheet REST de OWASP también quiere `Cache-Control: no-store` en respuestas que no deben quedarse en un caché compartido o privado, y un `Content-Type` correcto. Helmet no establece `Cache-Control`. Eso es tu interceptor o una política de gateway, no un default de Helmet.
 
@@ -431,81 +420,23 @@ Si montas Swagger UI en la misma app, este CSP lo romperá. Relaja `scriptSrc` /
 
 ## Una API segura no depende solo de headers
 
-Esta es la parte que los tres paquetes npm no pueden decir por ti.
+Esta es la parte que los tres paquetes npm no pueden decir por ti. El stack del principio del artículo es el mapa; la tabla es el reparto de trabajos.
 
-```mermaid
-flowchart TD
-    cors["CORS"] --> corsDesc["Seguridad de navegador"]
+| Mecanismo            | Problema que resuelve                    | Riesgos que reduce                                                     | Lo que no detiene                                          |
+| -------------------- | ---------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------- |
+| CORS                 | Lecturas cross-origin desde navegadores  | El JS de un sitio aleatorio leyendo tu API en el navegador del usuario | `curl`, Postman, tokens robados, auth faltante             |
+| Rate limiting        | Demasiadas peticiones de un tracker      | Stuffing, scraping, algo de DoS a nivel de aplicación                  | Bugs de lógica, una petición maliciosa bien formada        |
+| Headers de seguridad | Cómo los navegadores tratan la respuesta | Clickjacking, MIME sniffing, contenido mixto, HTTPS stale              | Inyección server-side, control de acceso roto              |
+| Autenticación        | Establecer identidad                     | Acceso anónimo                                                         | Un usuario autenticado haciendo algo que no debe           |
+| Autorización         | Aplicar permisos sobre un recurso        | IDOR / BOLA, escalamiento de privilegios                               | Abuso de infra, entrada no validada, rate limits faltantes |
 
-    headers["Headers de seguridad"] --> headersDesc["Seguridad de navegador / defensa en profundidad"]
+Si solo recuerdas una fila: **CORS no es una lista de control de acceso para internet.** La autenticación es el [capítulo de autenticación de Nest](https://docs.nestjs.com/security/authentication). La autorización son [guards y roles](https://docs.nestjs.com/security/authorization) — un JWT válido en `GET /orders/someone-elses-id` es un IDOR, no un bug de CORS. La validación es [`ValidationPipe`](https://docs.nestjs.com/techniques/validation).
 
-    rate["Rate Limiting"] --> rateDesc["Protección contra abuso"]
-
-    auth["Autenticación"] --> authDesc["Identidad"]
-
-    authorization["Autorización"] --> authorizationDesc["Permisos"]
-
-    validation["Validación de entrada"] --> validationDesc["Integridad de datos"]
-
-    waf["WAF / CDN / Firewall"] --> wafDesc["Protección de infraestructura"]
-```
-
-CORS responde: ¿puede esta **página** leer esa respuesta? Un token robado usado desde un servidor nunca pregunta.
-
-Helmet responde: si un navegador renderiza esto, ¿puede ser enmarcado, sniffeado, o mezclado con contenido activo? Una inyección SQL no lee `X-Frame-Options`.
-
-Throttler responde: ¿ha llamado este tracker con demasiada frecuencia? Una sola petición autorizada que borra la fila equivocada sigue siendo una petición.
-
-Autenticación responde: ¿quién es este? El capítulo de [autenticación](https://docs.nestjs.com/security/authentication) de Nest es ese trabajo.
-
-Autorización responde: ¿puede hacer esto a **este** recurso? [Guards y roles](https://docs.nestjs.com/security/authorization) son ese trabajo. Un JWT válido en `GET /orders/someone-elses-id` es un IDOR, no un bug de CORS.
-
-Validación responde: ¿es este body una fecha, un email, un UUID dentro de rango? [`ValidationPipe`](https://docs.nestjs.com/techniques/validation) es ese trabajo. Aplicar rate limiting a un payload malformado aún desperdicia un parseo.
-
-| Mecanismo        | Problema que resuelve                   | Riesgos que reduce                                            | Lo que no detiene                                    |
-| ---------------- | --------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------- |
-| CORS             | Lecturas cross-origin desde navegadores | El JS de un sitio aleatorio leyendo tu API en el navegador del usuario | `curl`, Postman, tokens robados, auth faltante      |
-| Rate limiting    | Demasiadas peticiones de un tracker     | Stuffing, scraping, algo de DoS a nivel de aplicación         | Bugs de lógica, una petición maliciosa bien formada |
-| Headers de seguridad | Cómo los navegadores tratan la respuesta | Clickjacking, MIME sniffing, contenido mixto, HTTPS stale   | Inyección server-side, control de acceso roto        |
-| Autenticación    | Establecer identidad                    | Acceso anónimo                                                | Un usuario autenticado haciendo algo que no debe    |
-| Autorización     | Aplicar permisos sobre un recurso       | IDOR / BOLA, escalamiento de privilegios                      | Abuso de infra, entrada no validada, rate limits faltantes |
-
-Si solo recuerdas una fila: **CORS no es una lista de control de acceso para internet.**
-
-## Arquitectura de defensa en capas
-
-Un setup que coincide con cómo estas APIs se despliegan realmente:
-
-```mermaid
-flowchart TD
-    internet["Internet"]
-    cdn["CDN / WAF"]
-    lb["Load Balancer"]
-    nest["NestJS<br/>API"]
-
-    auth["Auth"]
-    rate["Rate Limit"]
-    validation["Validación"]
-    redis["Redis"]
-
-    internet --> cdn
-    cdn --> lb
-    lb --> nest
-
-    nest --> auth
-    nest --> rate
-    nest --> validation
-
-    rate --> redis
-```
-
-El CDN/WAF absorbe ruido volumétrico, TLS, y algunos patrones conocidos como malos antes de que se conviertan en trabajo del event-loop de NestJS. El load balancer termina conexiones y reenvía la lista de saltos que decidiste confiar. NestJS aplica CORS y Helmet en la entrada y salida, después el throttler guard, después authn/authz, después `ValidationPipe`, después el servicio. Redis guarda un contador compartido cuando hay más de una réplica.
-
-Cada caja falla de forma cerrada para **su** amenaza. El WAF no notará que `role` es escribible en `PATCH /users/me`. Redis no notará que Swagger UI es público. Helmet no notará que `/auth/login` no tiene backoff.
+En producción ese stack está detrás de un CDN/WAF y un load balancer. Redis guarda el contador compartido cuando hay más de una réplica. Cada caja falla de forma cerrada para **su** amenaza. El WAF no notará que `role` es escribible en `PATCH /users/me`. Redis no notará que Swagger UI es público. Helmet no notará que `/auth/login` no tiene backoff.
 
 ## Configuración de producción recomendada
 
-Un ejemplo coherente. Orígenes, conteos de saltos, y límites vienen del entorno. Los secretos no aparecen en el código fuente.
+Enlaza las piezas que ya se mostraron. Orígenes, conteos de saltos y límites vienen del entorno. Los secretos no aparecen en el código fuente.
 
 ```bash
 # valores de ejemplo — no una política universal
@@ -518,140 +449,13 @@ THROTTLE_LIMIT=60
 # REDIS_URL=redis://redis:6379
 ```
 
-```ts
-// main.ts
-import { ValidationPipe } from "@nestjs/common";
-import { ConfigService } from "@nestjs/config";
-import { NestFactory } from "@nestjs/core";
-import type { NestExpressApplication } from "@nestjs/platform-express";
-import helmet from "helmet";
-import { AppModule } from "./app.module";
+Perillas de producción — no una segunda copia de `main.ts` / `app.module.ts`:
 
-function parseOrigins(raw: string | undefined): string[] {
-  return (raw ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
-
-async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  const config = app.get(ConfigService);
-  const isProduction = config.get<string>("NODE_ENV") === "production";
-  const allowlist = parseOrigins(config.get<string>("CORS_ORIGINS"));
-
-  app.use(
-    helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'none'"],
-          frameAncestors: ["'none'"],
-          upgradeInsecureRequests: isProduction ? [] : null,
-        },
-      },
-      crossOriginResourcePolicy: { policy: "cross-origin" },
-      xFrameOptions: { action: "deny" },
-      strictTransportSecurity: isProduction ? { maxAge: 31536000, includeSubDomains: true } : false,
-    }),
-  );
-
-  app.enableCors({
-    origin: (
-      origin: string | undefined,
-      callback: (err: Error | null, allow?: boolean) => void,
-    ) => {
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-      if (allowlist.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-      callback(null, false);
-    },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: config.get<string>("CORS_CREDENTIALS") === "true",
-  });
-
-  const hops = Number(config.get<string>("TRUST_PROXY_HOPS") ?? "");
-  if (Number.isInteger(hops) && hops > 0) {
-    app.set("trust proxy", hops);
-  }
-
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
-
-  await app.listen(config.get<string>("PORT") ?? 3000);
-}
-
-bootstrap();
-```
-
-```ts
-// app.module.ts
-import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { APP_GUARD } from "@nestjs/core";
-import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
-
-@Module({
-  imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        throttlers: [
-          {
-            name: "default",
-            ttl: Number(config.get("THROTTLE_TTL_MS", 60_000)),
-            limit: Number(config.get("THROTTLE_LIMIT", 60)),
-          },
-        ],
-        errorMessage: "Too many requests",
-        // storage: new ThrottlerStorageRedisService(config.get("REDIS_URL")),
-      }),
-    }),
-  ],
-  providers: [
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
-  ],
-})
-export class AppModule {}
-```
-
-```ts
-// auth.controller.ts — ventanas más estrictas en las rutas que vale la pena atacar
-@Throttle({ default: { limit: 5, ttl: minutes(1) } })
-@Post("login")
-login(@Body() dto: LoginDto) {
-  return this.auth.login(dto);
-}
-
-@Throttle({ default: { limit: 3, ttl: minutes(1) } })
-@Post("password-reset")
-passwordReset(@Body() dto: PasswordResetDto) {
-  return this.auth.passwordReset(dto);
-}
-```
-
-```ts
-// health.controller.ts
-@Controller("health")
-@SkipThrottle({ default: true })
-export class HealthController {
-  @Get()
-  check() {
-    return { status: "ok" };
-  }
-}
-```
-
-Descomenta el storage de Redis cuando haya más de una réplica. Mantén `@SkipThrottle` en las sondas. Mantén los overrides de `@Throttle` en login y password reset. Mantén autenticación y autorización en `/orders` y `/profile` — no están en este archivo a propósito. Este fragmento no los implementa, y Helmet tampoco lo hará.
+- Helmet, después CORS, en `bootstrap()`, usando el callback de allowlist y las opciones de Helmet ya mostradas. Configúralos con `CORS_ORIGINS`, `CORS_CREDENTIALS` y `NODE_ENV`.
+- `trust proxy` desde `TRUST_PROXY_HOPS` (el conteo de saltos que mediste). Enlaza `ThrottlerBehindProxyGuard` cuando Fastify o saltos extra necesiten `req.ips`.
+- `ThrottlerModule.forRootAsync` con `THROTTLE_TTL_MS` / `THROTTLE_LIMIT`, `APP_GUARD`, y storage Redis cuando hay más de una réplica.
+- `@Throttle` en login (5/min) y password reset (3/min); `@SkipThrottle` en las sondas de health.
+- `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` global. La autenticación y la autorización en `/orders` y `/profile` siguen sin ser el trabajo de Helmet.
 
 Desarrollo puede usar un `THROTTLE_LIMIT` más relajado, `http://localhost:5173` en `CORS_ORIGINS`, y ningún `TRUST_PROXY_HOPS`. No debería usar `origin: true`, y no debería deshabilitar el guard «para moverse más rápido» en el mismo camino de código que vas a desplegar.
 
@@ -665,7 +469,7 @@ Desarrollo puede usar un `THROTTLE_LIMIT` más relajado, `http://localhost:5173`
 
 **Headers de seguridad: un CSP default en una app que no has inventariado.** Swagger UI, GraphQL Playground, y cualquier script inline quedarán en blanco. También un iframe legítimo. Lee el HTML que sirves, después escribe la política. No pegues la lista del CDN de Apollo en una API REST.
 
-**Seguridad: tratar CORS como un firewall.** Los atacantes no usan tu frontend. Usan tu contrato HTTP. Documenta ese contrato con honestidad — ver [OpenAPI y Swagger en NestJS](/blog/openapi-swagger-nestjs/) — y autentica al llamante.
+**Seguridad: tratar CORS como un firewall.** Los atacantes no usan tu frontend. Usan tu contrato HTTP. Documenta ese contrato con honestidad — ver [OpenAPI y Swagger en NestJS](/blog/openapi-swagger-nestjs/) — y autentica al caller.
 
 **Distribución: contadores en memoria detrás de un autoescalador.** Cada réplica es un presupuesto fresco. El límite que configuraste no es el límite que tienes.
 
@@ -673,22 +477,14 @@ Desarrollo puede usar un `THROTTLE_LIMIT` más relajado, `http://localhost:5173`
 
 ## Una API first-party, ruta por ruta
 
-```mermaid
-flowchart TD
-    frontend["Frontend<br/>app.example.com"]
-    api["NestJS API<br/>api.example.com"]
-
-    frontend -->|HTTPS| api
-```
-
-| Ruta                        | CORS                               | Rate limit (ejemplo)              | Authn / authz                 | Por qué                                                 |
-| --------------------------- | ---------------------------------- | --------------------------------- | ----------------------------- | ------------------------------------------------------- |
-| `POST /auth/login`          | allowlist + credentials si cookies | 5 / min, `blockDuration` opcional | Público, después emite sesión | Objetivo de stuffing. Falla cerrado en origen.          |
-| `POST /auth/password-reset` | igual                              | 3 / min                           | Público                       | Envía email. Más barato limitar que limpiar una cola.   |
-| `GET /products`             | allowlist                          | 100 / min                         | Público o API key             | Mayormente lectura. Aún así limita scrapers.            |
-| `POST /orders`              | allowlist                          | 20 / min                          | Autenticado + dueño del carrito | Cambio de estado y adyacente a pago.                   |
-| `GET /profile`              | allowlist                          | default                           | Autenticado + dueño del id    | IDOR vive aquí, no en Helmet.                           |
-| `GET /health`               | no necesario para sondas           | skip                              | Restringido por red           | No hagas 429 a la plataforma.                           |
+| Ruta                        | CORS                               | Rate limit (ejemplo)              | Authn / authz                   | Por qué                                               |
+| --------------------------- | ---------------------------------- | --------------------------------- | ------------------------------- | ----------------------------------------------------- |
+| `POST /auth/login`          | allowlist + credentials si cookies | 5 / min, `blockDuration` opcional | Público, después emite sesión   | Objetivo de stuffing. Falla cerrado en origen.        |
+| `POST /auth/password-reset` | igual                              | 3 / min                           | Público                         | Envía email. Más barato limitar que limpiar una cola. |
+| `GET /products`             | allowlist                          | 100 / min                         | Público o API key               | Mayormente lectura. Aún así limita scrapers.          |
+| `POST /orders`              | allowlist                          | 20 / min                          | Autenticado + dueño del carrito | Cambio de estado y adyacente a pago.                  |
+| `GET /profile`              | allowlist                          | default                           | Autenticado + dueño del id      | IDOR vive aquí, no en Helmet.                         |
+| `GET /health`               | no necesario para sondas           | skip                              | Restringido por red             | No hagas 429 a la plataforma.                         |
 
 Login y password reset son públicos **y** hostiles. Reciben el límite de aplicación más estricto, logs estructurados en `429`, y ninguna enumeración de usuarios en el body. Products puede ser más relajado porque un scrape perdido es más barato que una homepage bloqueada. Orders y profile no son «más Helmet». Son identidad más autorización a nivel de objeto. CORS es la misma allowlist en todas las rutas de navegador: `https://app.example.com`, no `*`.
 
@@ -711,36 +507,23 @@ Una petición bloqueada que no logueas es indistinguible de una API correctament
 
 La misma forma funciona para un rechazo CORS que manejes en el callback de origin (usa un `event` dedicado, y aún así omite cualquier header que lleve credenciales).
 
-Esas líneas te dicen si `/auth/login` está recibiendo credential stuffing, si un deploy configuró mal `TRUST_PROXY_HOPS` (todos los 429 comparten una IP de CDN, o ninguno lo hace), si un límite es demasiado estricto (usuarios reales, muchas rutas, un NAT de oficina), y si una réplica está aplicando un presupuesto distinto al de sus pares. Cómo poner `requestId` en cada línea — y cómo eso difiere de un `transactionId` de negocio — está en [Logging estructurado y transaction IDs en NestJS](/blog/structured-logging-transaction-ids-nestjs/).
+Esas líneas te dicen si `/auth/login` está recibiendo credential stuffing, si un deploy configuró mal `TRUST_PROXY_HOPS` (todos los 429 comparten una IP de CDN, o ninguno lo hace), si un límite es demasiado estricto (usuarios reales, muchas rutas, un NAT de oficina), y si una réplica está aplicando un presupuesto distinto al de sus pares. Cómo poner `requestId` en cada línea — y cómo eso difiere de un `transactionId` de negocio — está en [Logging estructurado y transaction IDs en NestJS](/blog/structured-logging-transaction-id-nestjs/).
 
 Un exception filter global que ya formatea errores de Nest puede loguear cuando `status === 429` y devolver el mismo body estable que emite el throttler. No añadas un segundo mensaje ruidoso que filtre los internals de `ttl` al cliente.
 
 ## Checklist de seguridad
 
-- CORS usa una allowlist explícita, no `*` ni `origin: true`, a menos que la API sea intencionalmente pública y sin credenciales
-- `credentials` está activo solo si el navegador debe enviar cookies (o un fetch con credenciales); nunca emparejado con `*`
-- Helmet está registrado antes de otros middleware
-- Los headers fueron revisados para una API JSON versus HTML / Swagger / Playground
-- `Cross-Origin-Resource-Policy` no bloquea el frontend real
-- Rate limiting es global **y** un `ThrottlerGuard` está enlazado
-- Login, password reset, y otros imanes de abuso tienen límites más estrictos
-- Los health checks se saltan a propósito
-- `trust proxy` / `trustProxy` coincide con el conteo de saltos que realmente tienes
-- El storage se comparte (por ejemplo Redis) cuando hay más de una réplica
-- La autenticación está implementada en rutas que no son públicas
-- La autorización comprueba el recurso, no solo el token
-- La validación de entrada está activa (`ValidationPipe` o equivalente)
-- Los eventos de seguridad (`429`, origen inesperado) se loguean sin secretos
-- Los orígenes, límites, y secretos vienen del entorno
-- HTTPS es el único listener público; HSTS se habilita solo entonces
+Criterio de salida — la sección de errores es el _por qué_; esto es el _antes de desplegar_:
+
+- Allowlist CORS desde el entorno; `credentials` solo con un origen concreto
+- `ThrottlerGuard` enlazado; login y password reset más estrictos; sondas saltadas; Redis cuando hay réplicas; conteo de saltos de `trust proxy` medido
+- Helmet antes de otros middleware; CORP no bloquea la SPA; CSP revisado para JSON vs `/docs`
+- Autenticación, autorización a nivel de objeto y `ValidationPipe` en las rutas que los necesitan
+- `429` y orígenes inesperados logueados sin secretos; solo HTTPS; HSTS solo entonces
 
 ## Tres capas, una estrategia
 
-CORS es una conversación de navegador sobre orígenes. Helmet es una conversación de navegador sobre cómo tratar una respuesta. `@nestjs/throttler` es una conversación de aplicación sobre con qué frecuencia puede volver un tracker. Producción añade un conteo de saltos que mediste, un store que comparten las réplicas, y límites que siguen el abuso, no el happy path.
-
-La API no está «segura» cuando esos tres compilan. Está más cerca de producción cuando cada capa tiene un dueño, un modo de fallo que puedes loguear, y un vecino — autenticación, autorización, validación, un WAF — que cubre lo que ella no puede.
-
-Despliega la allowlist, el guard, y los headers. Después ve a implementar las partes que este artículo deliberadamente no pretendió implementar.
+CORS es una conversación de navegador sobre orígenes. Helmet es una conversación de navegador sobre cómo tratar una respuesta. `@nestjs/throttler` es una conversación de aplicación sobre con qué frecuencia puede volver un tracker. Despliega la allowlist, el guard y los headers. Después ve a implementar las partes que este artículo deliberadamente no pretendió implementar.
 
 ## Fuentes
 

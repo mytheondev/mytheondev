@@ -1,0 +1,24 @@
+{
+  "redirects": [
+    {
+      "source": "/blog/traceid-is-not-transactionid/",
+      "destination": "/blog/trace-id-is-not-transaction-id/",
+      "permanent": true
+    },
+    {
+      "source": "/blog/traceid-is-not-transactionid",
+      "destination": "/blog/trace-id-is-not-transaction-id/",
+      "permanent": true
+    },
+    {
+      "source": "/blog/structured-logging-transaction-ids-nestjs/",
+      "destination": "/blog/structured-logging-transaction-id-nestjs/",
+      "permanent": true
+    },
+    {
+      "source": "/blog/structured-logging-transaction-ids-nestjs",
+      "destination": "/blog/structured-logging-transaction-id-nestjs/",
+      "permanent": true
+    }
+  ]
+}
