@@ -9,7 +9,8 @@ const { text, as: Tag = "h1", class: className = "" } = Astro.props;
 ---
 
 <Tag class:list={["block", className]} data-typewriter={text}>
-  <span data-typewriter-text>{text}</span><span class="cursor-blink" aria-hidden="true"></span>
+  <span data-typewriter-text>{text}</span>
+  <span class="cursor-blink h-10! md:h-16!" aria-hidden="true"></span>
 </Tag>
 
 <script>

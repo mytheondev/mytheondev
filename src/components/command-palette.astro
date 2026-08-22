@@ -33,6 +33,7 @@ const posts = (await getEnglishPosts())
     tags: post.data.tags,
     slug: post.id,
     href: `/blog/${post.id}/`,
+    publishedAt: post.data.publishedAt.valueOf(),
     search: `${post.data.title} ${post.data.description} ${post.data.tags.join(" ")} ${post.id}`,
   }));
 ---
@@ -120,6 +121,11 @@ const posts = (await getEnglishPosts())
             data-palette-item
             data-palette-group="posts"
             data-search={post.search}
+            data-title={post.title}
+            data-tags={post.tags.join(" ")}
+            data-description={post.description}
+            data-slug={post.slug}
+            data-published={String(post.publishedAt)}
             role="option"
             aria-selected="false"
             class="palette-item"
@@ -203,7 +209,25 @@ const posts = (await getEnglishPosts())
       kbdHint.textContent = "⌘K";
     }
 
+    const IDLE_POST_LIMIT = 8;
+    const SEARCH_POST_LIMIT = 8;
+    const navEls = items().filter((item) => item.dataset.paletteGroup === "nav");
+    const originalPostOrder = items().filter((item) => item.dataset.paletteGroup === "posts");
+
     const visibleItems = () => items().filter((item) => !item.classList.contains("hidden"));
+
+    const scorePost = (item: HTMLAnchorElement, terms: string[]) => {
+      const title = (item.dataset.title ?? "").toLowerCase();
+      const tags = (item.dataset.tags ?? "").toLowerCase();
+      const rest = `${item.dataset.description ?? ""} ${item.dataset.slug ?? ""}`.toLowerCase();
+      let score = 0;
+      for (const term of terms) {
+        if (title.includes(term)) score += 3;
+        if (tags.includes(term)) score += 2;
+        if (rest.includes(term)) score += 1;
+      }
+      return score;
+    };
 
     const conceal = () => {
       window.clearTimeout(hideTimer);
@@ -244,16 +268,52 @@ const posts = (await getEnglishPosts())
     const applyFilter = (query: string) => {
       const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
       let navVisible = 0;
-      let postsVisible = 0;
 
-      for (const item of items()) {
+      for (const item of navEls) {
         const hay = (item.dataset.search ?? "").toLowerCase();
         const match = terms.length === 0 || terms.every((term) => hay.includes(term));
         item.classList.toggle("hidden", !match);
-        if (!match) continue;
-        if (item.dataset.paletteGroup === "nav") navVisible += 1;
-        if (item.dataset.paletteGroup === "posts") postsVisible += 1;
+        if (match) navVisible += 1;
       }
+
+      const ranked = originalPostOrder
+        .map((item, index) => {
+          const hay = (item.dataset.search ?? "").toLowerCase();
+          const match = terms.length === 0 || terms.every((term) => hay.includes(term));
+          return {
+            item,
+            match,
+            index,
+            score: terms.length === 0 ? 0 : scorePost(item, terms),
+            published: Number(item.dataset.published ?? 0),
+          };
+        })
+        .filter((entry) => entry.match)
+        .sort((a, b) => {
+          if (terms.length === 0) return a.index - b.index;
+          return b.score - a.score || b.published - a.published || a.index - b.index;
+        });
+
+      const limit = terms.length === 0 ? IDLE_POST_LIMIT : SEARCH_POST_LIMIT;
+      const shown = ranked.slice(0, limit);
+      const shownSet = new Set(shown.map((entry) => entry.item));
+
+      for (const item of originalPostOrder) {
+        item.classList.toggle("hidden", !shownSet.has(item));
+      }
+
+      const ordered =
+        terms.length === 0
+          ? originalPostOrder
+          : [
+              ...shown.map((entry) => entry.item),
+              ...originalPostOrder.filter((item) => !shownSet.has(item)),
+            ];
+      for (const item of ordered) {
+        empty?.before(item);
+      }
+
+      const postsVisible = shown.length;
 
       palette
         .querySelectorAll<HTMLElement>("[data-palette-group]:not([data-palette-item])")
@@ -263,8 +323,7 @@ const posts = (await getEnglishPosts())
           label.classList.toggle("hidden", count === 0);
         });
 
-      const total = navVisible + postsVisible;
-      empty?.classList.toggle("hidden", total > 0);
+      empty?.classList.toggle("hidden", navVisible + postsVisible > 0);
       setActive(0);
     };
 
