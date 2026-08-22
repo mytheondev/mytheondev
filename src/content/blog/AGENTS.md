@@ -96,6 +96,12 @@ Code exists to demonstrate an idea: small focused snippets, no unused boilerplat
 
 A diagram must answer a concrete question better than the surrounding text. If it does not, remove it.
 
+## Open Graph images
+
+Open Graph images live at `src/assets/{slug}.png` and are provided manually. Do not generate, design, or invent them for new or updated articles. Until the matching PNG exists, the site falls back to the default OG image.
+
+When renaming a published slug, rename the existing OG asset. Do not create a replacement image.
+
 ## Filenames vs in-content names
 
 Slugs and URLs: kebab-case (`trace-id`, `transaction-id`, `api-key`).
