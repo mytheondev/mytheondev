@@ -1,8 +1,8 @@
 ---
 title: "Un traceId no es un transactionId: seguir una petición a través de microservicios"
 description: "Tener logs no es tener observability. Cómo transactionId, traceId y W3C Trace Context permiten reconstruir una petición a través de servicios — en Cloud Run, AWS y Azure."
-publishedAt: 2026-08-15
-updatedAt: 2026-08-15
+publishedAt: "2026-08-15T09:00:00Z"
+updatedAt: "2026-08-15T09:00:00Z"
 tags: [Observability, Architecture, GCP]
 minutes: 16
 related:

@@ -1,8 +1,8 @@
 ---
 title: "A traceId is not a transactionId: following a request across microservices"
 description: "Logging is not observability. How transactionId, traceId, and W3C Trace Context let you reconstruct a request across services — on Cloud Run, AWS, and Azure."
-publishedAt: 2026-08-15
-updatedAt: 2026-08-15
+publishedAt: "2026-08-15T09:00:00Z"
+updatedAt: "2026-08-15T09:00:00Z"
 tags: [Observability, Architecture, GCP]
 minutes: 16
 related:

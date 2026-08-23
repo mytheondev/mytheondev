@@ -1,8 +1,8 @@
 ---
 title: "Race conditions: when two requests try to buy the same thing"
 description: "A check-then-act flow can sell the same seat twice. How atomic updates, constraints, locking, and idempotency keys keep exclusive resources consistent under concurrency."
-publishedAt: 2026-08-22
-updatedAt: 2026-08-22
+publishedAt: "2026-08-22T09:00:00Z"
+updatedAt: "2026-08-22T09:00:00Z"
 tags: [Architecture, Databases, API]
 minutes: 16
 prerequisites:

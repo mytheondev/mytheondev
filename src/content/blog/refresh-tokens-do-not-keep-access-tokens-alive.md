@@ -1,8 +1,8 @@
 ---
 title: "A refresh token does not keep an access token alive: how sessions actually work"
 description: "Why a 30-day JWT is a bad session. How access tokens, refresh tokens, rotation, and revocation let a user stay signed in while limiting the lifetime of the credential that travels with every request."
-publishedAt: 2026-08-16
-updatedAt: 2026-08-16
+publishedAt: "2026-08-16T09:00:00Z"
+updatedAt: "2026-08-16T09:00:00Z"
 tags: [Security, Architecture, NestJS]
 minutes: 22
 prerequisites:

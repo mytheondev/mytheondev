@@ -1,8 +1,8 @@
 ---
 title: "Git y GitHub: cómo funcionan de verdad, y cómo los usan los equipos"
 description: "Git es un modelo de snapshots local. GitHub es la capa de colaboración. Cómo encajan working trees, ramas, merge, rebase, pull requests y reglas de protección en un workflow de equipo real."
-publishedAt: 2025-09-02
-updatedAt: 2025-09-02
+publishedAt: "2025-09-02T09:00:00Z"
+updatedAt: "2025-09-02T09:00:00Z"
 tags: [Git, GitHub]
 minutes: 25
 prerequisites:

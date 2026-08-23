@@ -1,8 +1,8 @@
 ---
 title: "Git and GitHub: how they actually work, and how teams use them"
 description: "Git is a local snapshot model. GitHub is the collaboration layer. How working trees, branches, merge, rebase, pull requests, and protection rules fit a real team workflow."
-publishedAt: 2025-09-02
-updatedAt: 2025-09-02
+publishedAt: "2025-09-02T09:00:00Z"
+updatedAt: "2025-09-02T09:00:00Z"
 tags: [Git, GitHub]
 minutes: 25
 prerequisites:

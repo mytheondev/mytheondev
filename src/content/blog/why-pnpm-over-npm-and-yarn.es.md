@@ -1,8 +1,8 @@
 ---
 title: "Elegir un package manager de Node.js: en qué se diferencian de verdad npm, Yarn y pnpm"
 description: "La diferencia está en el modelo de dependencias, no en el CLI. Cómo el store de pnpm y su node_modules aislado se comparan con npm y Yarn moderno — y cuándo encaja mejor cada uno."
-publishedAt: 2026-08-13
-updatedAt: 2026-08-13
+publishedAt: "2026-08-13T09:00:00Z"
+updatedAt: "2026-08-13T09:00:00Z"
 tags: [JavaScript, Tooling, Node.js]
 minutes: 16
 prerequisites:

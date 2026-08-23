@@ -1,8 +1,8 @@
 ---
 title: "Google Cloud Pub/Sub: cómo usarlo bien, y cuándo de verdad lo necesitas"
 description: "Pub/Sub no es una cola y no es un reemplazo de REST. Cómo diseñar topics, subscriptions, reintentos y consumidores idempotentes — y cuándo HTTP o Cloud Tasks es la mejor opción."
-publishedAt: 2026-08-14
-updatedAt: 2026-08-14
+publishedAt: "2026-08-14T09:00:00Z"
+updatedAt: "2026-08-14T09:00:00Z"
 tags: [GCP, Pub/Sub, Architecture]
 minutes: 19
 ---

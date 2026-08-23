@@ -1,8 +1,8 @@
 ---
 title: "Race conditions: cuando dos peticiones intentan comprar lo mismo"
 description: "Un flujo check-then-act puede vender la misma butaca dos veces. Cómo los updates atómicos, las constraints, el locking y las idempotency keys mantienen consistentes los recursos exclusivos bajo concurrencia."
-publishedAt: 2026-08-22
-updatedAt: 2026-08-22
+publishedAt: "2026-08-22T09:00:00Z"
+updatedAt: "2026-08-22T09:00:00Z"
 tags: [Architecture, Databases, API]
 minutes: 17
 prerequisites:

@@ -1,8 +1,8 @@
 ---
 title: "OpenAPI and Swagger in NestJS: document the contract, not just the UI"
 description: "OpenAPI is the contract. Swagger UI is the viewer. How NestJS builds an OpenAPI document from controllers and DTOs — and how to keep it honest in real teams."
-publishedAt: 2026-04-12
-updatedAt: 2026-04-12
+publishedAt: "2026-04-12T09:00:00Z"
+updatedAt: "2026-04-12T09:00:00Z"
 tags: [NestJS, OpenAPI, API]
 minutes: 16
 prerequisites:

@@ -17,8 +17,8 @@ The Spanish version is not a literal translation. It should read as if it was wr
 ```yaml
 title: "..."
 description: "..."
-publishedAt: "YYYY-MM-DD"
-updatedAt: "YYYY-MM-DD"
+publishedAt: "YYYY-MM-DDTHH:mm:ssZ"
+updatedAt: "YYYY-MM-DDTHH:mm:ssZ"
 tags: [Tag1, Tag2]
 minutes: 12
 prerequisites: []
@@ -52,13 +52,13 @@ Do not add complexity only to sound advanced.
 
 ## Length
 
-| Type | Recommended length |
-| --- | ---: |
-| Concept / explanation | 1,200–2,000 words |
-| Comparison | 1,500–2,500 words |
-| Tutorial | 1,800–3,000 words |
-| Architecture / security | 2,000–3,500 words |
-| Deep guide | 3,000–4,500 words |
+| Type                    | Recommended length |
+| ----------------------- | -----------------: |
+| Concept / explanation   |  1,200–2,000 words |
+| Comparison              |  1,500–2,500 words |
+| Tutorial                |  1,800–3,000 words |
+| Architecture / security |  2,000–3,500 words |
+| Deep guide              |  3,000–4,500 words |
 
 Most articles: 6–12 minutes. 15 minutes is the normal ceiling. Beyond 15 minutes or 4,500 words needs a clear reason (for example a justified multi-layer security guide).
 
@@ -92,7 +92,7 @@ Back important technical claims. Prefer official docs, RFCs, specs, vendor docs,
 
 ## Code and diagrams
 
-Code exists to demonstrate an idea: small focused snippets, no unused boilerplate, no full-file dumps unless the file *is* the point.
+Code exists to demonstrate an idea: small focused snippets, no unused boilerplate, no full-file dumps unless the file _is_ the point.
 
 A diagram must answer a concrete question better than the surrounding text. If it does not, remove it.
 

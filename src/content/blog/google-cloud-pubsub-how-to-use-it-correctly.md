@@ -1,8 +1,8 @@
 ---
 title: "Google Cloud Pub/Sub: how to use it correctly, and when you actually need it"
 description: "Pub/Sub is not a queue and not a REST replacement. How to design topics, subscriptions, retries, and idempotent consumers — and when HTTP or Cloud Tasks is the better fit."
-publishedAt: 2026-08-14
-updatedAt: 2026-08-14
+publishedAt: "2026-08-14T09:00:00Z"
+updatedAt: "2026-08-14T09:00:00Z"
 tags: [GCP, Pub/Sub, Architecture]
 minutes: 17
 ---

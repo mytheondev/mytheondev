@@ -1,8 +1,8 @@
 ---
 title: "JWT vs API Keys: which should you use in an API?"
 description: "JWT is a token format. An API key is a credential. This article shows how they differ, when each fits, and why a modern API can use both without picking a winner."
-publishedAt: 2026-08-19
-updatedAt: 2026-08-19
+publishedAt: "2026-08-19T09:00:00Z"
+updatedAt: "2026-08-19T09:00:00Z"
 tags: [Security, Architecture, NestJS, API]
 minutes: 20
 prerequisites:

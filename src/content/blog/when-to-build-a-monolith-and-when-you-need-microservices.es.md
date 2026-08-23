@@ -1,8 +1,8 @@
 ---
 title: "Cuándo construir un monolito, y cuándo de verdad necesitas microservicios"
 description: "Los microservicios no son la evolución obligatoria de un monolito. Cómo elegir según dominio, equipo, escala y madurez operativa — y qué cuesta realmente cada opción."
-publishedAt: 2026-08-17
-updatedAt: 2026-08-17
+publishedAt: "2026-08-17T09:00:00Z"
+updatedAt: "2026-08-17T09:00:00Z"
 tags: [Architecture, Observability]
 minutes: 20
 related:

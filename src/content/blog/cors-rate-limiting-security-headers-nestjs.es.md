@@ -1,8 +1,8 @@
 ---
 title: "CORS, rate limiting y Helmet en NestJS: tres capas, no una estrategia de seguridad"
 description: "Qué protegen realmente CORS, @nestjs/throttler y Helmet en una API NestJS — y por qué ninguno de ellos sustituye a la autenticación, la autorización ni la validación de entrada."
-publishedAt: 2026-04-14
-updatedAt: 2026-04-14
+publishedAt: "2026-04-14T09:00:00Z"
+updatedAt: "2026-04-14T09:00:00Z"
 tags: [NestJS, API, Security]
 minutes: 23
 prerequisites:

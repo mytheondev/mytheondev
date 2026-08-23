@@ -1,8 +1,8 @@
 ---
 title: "When to build a monolith, and when you actually need microservices"
 description: "Microservices are not the required upgrade from a monolith. How to choose by domain, team, scale, and operational maturity — and what each choice actually costs."
-publishedAt: 2026-08-17
-updatedAt: 2026-08-17
+publishedAt: "2026-08-17T09:00:00Z"
+updatedAt: "2026-08-17T09:00:00Z"
 tags: [Architecture, Observability]
 minutes: 19
 related:

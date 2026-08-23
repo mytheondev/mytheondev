@@ -1,8 +1,8 @@
 ---
 title: "OpenAPI y Swagger en NestJS: documenta el contrato, no solo la UI"
 description: "OpenAPI es el contrato. Swagger UI es el visor. Cómo NestJS construye un documento OpenAPI desde controladores y DTOs — y cómo mantenerlo honesto en equipos reales."
-publishedAt: 2026-04-12
-updatedAt: 2026-04-12
+publishedAt: "2026-04-12T09:00:00Z"
+updatedAt: "2026-04-12T09:00:00Z"
 tags: [NestJS, OpenAPI, API]
 minutes: 17
 prerequisites:
@@ -482,7 +482,7 @@ export class UsersController {
 
 Si el documento OpenAPI y la API en ejecución no concuerdan, el cliente está mal de cualquier forma: confió en el documento, o confió en una conversación de pasillo. Genera el documento desde los mismos controladores y DTOs que publicas. Conserva Swagger UI para humanos que necesitan hacer click. Conserva el JSON para máquinas que necesitan generar, testear y mockear.
 
-Un Try it out verde en localhost no es un contrato. Un documento que CI puede emitir, difear y fallar — eso es el contrato.
+Un Try it out verde en localhost no es un contrato. Un documento que CI puede emitir, diffear y fallar — eso es el contrato.
 
 ## Fuentes
 

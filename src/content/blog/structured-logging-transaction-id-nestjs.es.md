@@ -1,8 +1,8 @@
 ---
 title: "Logging estructurado en NestJS: seguir una petición fallida con transactionId"
 description: "Cómo implementar logs estructurados en NestJS con Pino para que un pago sea buscable por transactionId — la misma identidad que el artículo compañero separa de traceId."
-publishedAt: 2026-04-13
-updatedAt: 2026-04-13
+publishedAt: "2026-04-13T09:00:00Z"
+updatedAt: "2026-04-13T09:00:00Z"
 tags: [NestJS, Observability, Logging]
 minutes: 25
 prerequisites:
