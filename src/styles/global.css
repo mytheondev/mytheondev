@@ -82,88 +82,48 @@
   background-repeat: no-repeat;
 }
 
-.aurora-layer {
+.page-bg::before,
+.page-grid {
   position: absolute;
   inset: 0;
-  transform: translate3d(0, calc(var(--aurora-y, 0px) * var(--aurora-speed, 0)), 0);
-  will-change: transform;
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 0%,
+    rgb(0 0 0 / 0.35) 22%,
+    transparent 36%,
+    transparent 64%,
+    rgb(0 0 0 / 0.35) 78%,
+    #000 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    #000 0%,
+    rgb(0 0 0 / 0.35) 22%,
+    transparent 36%,
+    transparent 64%,
+    rgb(0 0 0 / 0.35) 78%,
+    #000 100%
+  );
 }
 
-.aurora-orb {
-  position: absolute;
-  border-radius: 9999px;
-  filter: blur(80px);
-  mix-blend-mode: screen;
-  will-change: transform, opacity;
+.page-bg::before {
+  content: "";
+  background-image: radial-gradient(circle, rgb(173 174 176 / 0.14) 0.8px, transparent 0.9px);
+  background-size: 36px 36px;
 }
 
-.aurora-orb-a {
-  top: -12%;
-  left: 8%;
-  width: 42vw;
-  height: 42vw;
-  max-width: 520px;
-  max-height: 520px;
-  background: rgb(224 237 52 / 0.1);
-  animation: aurora-drift-a 32s ease-in-out infinite;
+.page-bg.is-interactive::before {
+  content: none;
 }
 
-.aurora-orb-b {
-  top: 28%;
-  right: -8%;
-  width: 36vw;
-  height: 36vw;
-  max-width: 440px;
-  max-height: 440px;
-  background: rgb(224 237 52 / 0.07);
-  animation: aurora-drift-b 40s ease-in-out infinite;
+.page-grid {
+  display: none;
+  width: 100%;
+  height: 100%;
 }
 
-.aurora-orb-c {
-  bottom: -18%;
-  left: 28%;
-  width: 48vw;
-  height: 32vw;
-  max-width: 560px;
-  max-height: 380px;
-  background: rgb(173 174 176 / 0.08);
-  animation: aurora-drift-c 36s ease-in-out infinite;
-}
-
-@keyframes aurora-drift-a {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-    opacity: 0.9;
-  }
-  50% {
-    transform: translate(8%, 12%) scale(1.08);
-    opacity: 0.55;
-  }
-}
-
-@keyframes aurora-drift-b {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-    opacity: 0.8;
-  }
-  50% {
-    transform: translate(-10%, -6%) scale(1.12);
-    opacity: 0.45;
-  }
-}
-
-@keyframes aurora-drift-c {
-  0%,
-  100% {
-    transform: translate(0, 0);
-    opacity: 0.7;
-  }
-  50% {
-    transform: translate(6%, -10%);
-    opacity: 0.4;
-  }
+.page-bg.is-interactive .page-grid {
+  display: block;
 }
 
 .skip-link {
@@ -391,15 +351,5 @@
 
   #site-header {
     transition: none;
-  }
-
-  .aurora-layer {
-    transform: none;
-    will-change: auto;
-  }
-
-  .aurora-orb {
-    animation: none;
-    opacity: 0.7;
   }
 }
