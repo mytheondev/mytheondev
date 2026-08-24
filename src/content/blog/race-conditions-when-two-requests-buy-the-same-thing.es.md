@@ -11,6 +11,7 @@ prerequisites:
 related:
   - google-cloud-pubsub-how-to-use-it-correctly
   - openapi-swagger-nestjs
+  - idempotency-in-apis
 ---
 
 Hace un tiempo, compré una entrada de cine desde el móvil. Llegué con tiempo, me senté en la butaca impresa en el ticket, y justo antes de apagar las luces, llegó una pareja. Una de sus entradas tenía el mismo número. La mía también era válida.
@@ -330,7 +331,7 @@ Ese header no es un estándar HTTP. Es un [Internet-Draft de IETF HTTPAPI](https
 
 El locking responde «quién puede cambiar F12 ahora». La idempotencia responde «¿es esta la misma operación que ya acepté?». Un segundo usuario con otra key debería seguir perdiendo la butaca. Un retry con la **misma** key debería devolver el hold original, no un 409 contra ti mismo.
 
-Persiste la key en la misma transacción que el hold cuando puedas. Es la misma regla que persistir un `eventId` de Pub/Sub junto al side effect — el lado consumidor de los retries está en [cómo usar Pub/Sub correctamente](/blog/google-cloud-pubsub-how-to-use-it-correctly/).
+Persiste la key en la misma transacción que el hold cuando puedas. Es la misma regla que persistir un `eventId` de Pub/Sub junto al side effect — el lado consumidor de los retries está en [cómo usar Pub/Sub correctamente](/blog/google-cloud-pubsub-how-to-use-it-correctly/). Cómo diseñar el `POST` para que el retry no cobre dos veces está en [idempotencia en APIs](/blog/idempotency-in-apis/).
 
 > El locking controla el acceso concurrente a un recurso. La idempotencia controla los reintentos de la misma operación.
 

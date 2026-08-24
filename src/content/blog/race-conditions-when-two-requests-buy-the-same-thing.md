@@ -11,6 +11,7 @@ prerequisites:
 related:
   - google-cloud-pubsub-how-to-use-it-correctly
   - openapi-swagger-nestjs
+  - idempotency-in-apis
 ---
 
 Some time ago, I bought a cinema ticket on my phone. I arrived early, sat in the seat printed on the stub, and a couple walked in just before the lights went down. One of their tickets had the same seat number. Mine was valid too.
@@ -330,7 +331,7 @@ That header is not an HTTP standard. It is an [IETF HTTPAPI Internet-Draft](http
 
 Locking answers "who may change F12 right now." Idempotency answers "is this the same operation I already accepted." A second user with a different key should still lose the seat. A retry with the **same** key should return the original hold, not a 409 against yourself.
 
-Persist the key in the same transaction as the hold when you can. That is the same rule as persisting a Pub/Sub `eventId` with the side effect — see [how to use Pub/Sub correctly](/blog/google-cloud-pubsub-how-to-use-it-correctly/) for the consumer side of retries.
+Persist the key in the same transaction as the hold when you can. That is the same rule as persisting a Pub/Sub `eventId` with the side effect — see [how to use Pub/Sub correctly](/blog/google-cloud-pubsub-how-to-use-it-correctly/) for the consumer side of retries. How to design the `POST` so a retry does not charge twice is in [API idempotency](/blog/idempotency-in-apis/).
 
 > Locking controls concurrent access to a resource. Idempotency controls repeated attempts of the same operation.
 
