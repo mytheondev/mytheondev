@@ -27,7 +27,7 @@ export const NAV_ITEMS = [
     id: "projects",
     label: "projects",
     command: "$ projects",
-    description: "Featured repositories",
+    description: "Open-source work and demos",
   },
   {
     id: "experience",
@@ -59,5 +59,6 @@ export type NavItemId = (typeof NAV_ITEMS)[number]["id"];
 
 export function navHref(id: NavItemId, home: boolean) {
   if (id === "blog") return "/blog/";
+  if (id === "projects") return "/projects/";
   return home ? `#${id}` : `/#${id}`;
 }

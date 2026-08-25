@@ -175,6 +175,21 @@
   transform: translateY(-1px);
 }
 
+html.projects-filter-vt {
+  view-transition-name: none;
+}
+
+html.projects-filter-vt::view-transition-group(*) {
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+html.projects-filter-vt::view-transition-old(*),
+html.projects-filter-vt::view-transition-new(*) {
+  animation-duration: 200ms;
+  animation-timing-function: ease-out;
+}
+
 .cursor-blink {
   display: inline-block;
   width: 4px;
@@ -351,5 +366,11 @@
 
   #site-header {
     transition: none;
+  }
+
+  html.projects-filter-vt::view-transition-group(*),
+  html.projects-filter-vt::view-transition-old(*),
+  html.projects-filter-vt::view-transition-new(*) {
+    animation: none !important;
   }
 }

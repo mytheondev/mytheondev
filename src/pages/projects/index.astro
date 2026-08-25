@@ -1,0 +1,233 @@
+---
+import ProjectCard from "../../components/project-card.astro";
+import SectionPrompt from "../../components/section-prompt.astro";
+import Layout from "../../layouts/terminal.astro";
+import {
+  getProjects,
+  projectTechnologies,
+  projectsUnavailable,
+  techHref,
+} from "../../lib/projects";
+
+const projects = await getProjects();
+const unavailable = await projectsUnavailable();
+const technologies = projectTechnologies(projects);
+
+const title = "Projects — Mytheon";
+const description =
+  "Open-source libraries and tools — TypeScript, Node.js, Tailwind, and editor tooling from Mytheon.";
+---
+
+<Layout title={title} description={description} activeNav="projects" titlePath="~/projects">
+  <section>
+    <SectionPrompt
+      command="~ ls -la projects/"
+      comment={unavailable ? "Exit 1 — could not list repositories" : "All projects, newest first"}
+    />
+    <h1 class="mb-3 text-3xl font-bold tracking-tight">Projects</h1>
+    <p class="mb-8 max-w-[68ch] text-base leading-7 text-muted">{description}</p>
+
+    {
+      unavailable ? (
+        <p class="text-sm text-muted" role="status">
+          Unable to load projects right now.
+        </p>
+      ) : (
+        <>
+          {technologies.length > 0 && (
+            <nav class="mb-6" aria-label="Filter by technology">
+              <ul class="flex flex-wrap gap-2">
+                <li>
+                  <a
+                    href="/projects/"
+                    data-tech-chip=""
+                    class="rounded-md border border-white/10 px-2.5 py-1 text-xs text-ink hover:border-brand hover:text-brand"
+                  >
+                    All
+                  </a>
+                </li>
+                {technologies.map((tech) => (
+                  <li>
+                    <a
+                      href={techHref(tech)}
+                      data-tech-chip={tech}
+                      class="rounded-md border border-white/10 px-2.5 py-1 text-xs text-muted hover:border-brand hover:text-brand"
+                    >
+                      {tech}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
+          <p data-tech-filter class="mb-6 hidden text-sm text-muted" role="status">
+            Filtered by <span data-tech-name />
+            <a
+              href="/projects/"
+              class="ml-3 text-brand underline decoration-brand/40 underline-offset-4 hover:decoration-brand"
+            >
+              clear
+            </a>
+          </p>
+          <div class="columns-1 gap-4 md:columns-2" data-project-list>
+            {projects.map((project) => (
+              <div
+                class="mb-4 w-full break-inside-avoid"
+                data-techs={project.technologies.join(",")}
+                style={`view-transition-name: project-${project.name}`}
+              >
+                <ProjectCard project={project} />
+              </div>
+            ))}
+          </div>
+          <p data-tech-empty class="mt-4 hidden text-sm text-muted" role="status">
+            No projects with that technology.
+          </p>
+          <script is:inline>
+            (() => {
+              const tech = new URLSearchParams(location.search).get("tech");
+              if (!tech) return;
+              const items = document.querySelectorAll("[data-techs]");
+              if (!items.length) return;
+              let visible = 0;
+              for (const item of items) {
+                const match = (item.getAttribute("data-techs") || "").split(",").includes(tech);
+                item.toggleAttribute("hidden", !match);
+                if (match) visible += 1;
+              }
+              document.querySelector("[data-tech-filter]")?.classList.remove("hidden");
+              const name = document.querySelector("[data-tech-name]");
+              if (name) name.textContent = tech;
+              if (visible === 0) document.querySelector("[data-tech-empty]")?.classList.remove("hidden");
+              for (const chip of document.querySelectorAll("[data-tech-chip]")) {
+                const value = chip.getAttribute("data-tech-chip") ?? "";
+                const active = value === tech;
+                chip.classList.toggle("border-brand", active);
+                chip.classList.toggle("text-brand", active);
+                chip.classList.toggle("text-muted", !active && value !== "");
+                chip.classList.toggle("text-ink", !active && value === "");
+                if (active) chip.setAttribute("aria-current", "page");
+                else chip.removeAttribute("aria-current");
+              }
+            })();
+          </script>
+        </>
+      )
+    }
+  </section>
+</Layout>
+
+<script>
+  const chips = document.querySelectorAll<HTMLAnchorElement>("[data-tech-chip]");
+  const items = document.querySelectorAll<HTMLElement>("[data-techs]");
+  const filter = document.querySelector("[data-tech-filter]");
+  const name = document.querySelector("[data-tech-name]");
+  const empty = document.querySelector("[data-tech-empty]");
+  const list = document.querySelector("[data-project-list]");
+
+  if (chips.length && items.length) {
+    const FADE_MS = 200;
+    const fadeOutClass = ["animate-fade-out", "animate-duration-200"] as const;
+    const fadeInClass = ["animate-fade-in", "animate-duration-200"] as const;
+    let fadeGeneration = 0;
+
+    const reduceMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const currentTech = () => new URLSearchParams(location.search).get("tech");
+
+    const isProjectsUrl = (url: URL) =>
+      url.origin === location.origin &&
+      (url.pathname === "/projects/" || url.pathname === "/projects");
+
+    const applyFilter = (tech: string | null) => {
+      for (const chip of chips) {
+        const value = chip.dataset.techChip ?? "";
+        const active = tech ? value === tech : value === "";
+        chip.classList.toggle("border-brand", active);
+        chip.classList.toggle("text-brand", active);
+        chip.classList.toggle("text-muted", !active && value !== "");
+        chip.classList.toggle("text-ink", !active && value === "");
+        if (active) chip.setAttribute("aria-current", "page");
+        else chip.removeAttribute("aria-current");
+      }
+
+      let visible = 0;
+      for (const item of items) {
+        const match = !tech || (item.dataset.techs ?? "").split(",").includes(tech);
+        item.toggleAttribute("hidden", !match);
+        if (match) visible += 1;
+      }
+
+      if (filter instanceof HTMLElement) filter.classList.toggle("hidden", !tech);
+      if (name) name.textContent = tech ?? "";
+      if (empty instanceof HTMLElement) empty.classList.toggle("hidden", !tech || visible > 0);
+    };
+
+    const fadeList = (tech: string | null) => {
+      if (!(list instanceof HTMLElement)) {
+        applyFilter(tech);
+        return;
+      }
+
+      const id = ++fadeGeneration;
+      let settled = false;
+      list.classList.remove(...fadeInClass);
+      list.classList.add(...fadeOutClass);
+
+      const finish = () => {
+        if (settled || id !== fadeGeneration) return;
+        settled = true;
+        list.removeEventListener("animationend", finish);
+        applyFilter(tech);
+        list.classList.remove(...fadeOutClass);
+        list.classList.add(...fadeInClass);
+      };
+
+      list.addEventListener("animationend", finish);
+      window.setTimeout(finish, FADE_MS + 50);
+    };
+
+    const runFilter = (tech: string | null) => {
+      if (reduceMotion()) {
+        applyFilter(tech);
+        return;
+      }
+
+      if (typeof document.startViewTransition === "function") {
+        document.documentElement.classList.add("projects-filter-vt");
+        const transition = document.startViewTransition(() => applyFilter(tech));
+        void transition.finished.finally(() => {
+          document.documentElement.classList.remove("projects-filter-vt");
+        });
+        return;
+      }
+
+      fadeList(tech);
+    };
+
+    document.addEventListener("click", (event) => {
+      if (event.defaultPrevented || event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest("a");
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      if (anchor.target && anchor.target !== "_self") return;
+
+      const url = new URL(anchor.href, location.href);
+      if (!isProjectsUrl(url)) return;
+
+      event.preventDefault();
+      const tech = url.searchParams.get("tech");
+      if (tech === currentTech() && url.pathname === location.pathname) return;
+
+      const next = `${url.pathname}${url.search}`;
+      history.pushState({ tech }, "", next);
+      runFilter(tech);
+    });
+
+    window.addEventListener("popstate", () => {
+      runFilter(currentTech());
+    });
+  }
+</script>

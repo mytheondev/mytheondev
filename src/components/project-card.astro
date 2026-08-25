@@ -1,38 +1,94 @@
 ---
-import { LANGUAGE_COLORS, type Project } from "../lib/github-projects";
+import { projectYear, techHref, type Project } from "../lib/projects";
 
 interface Props {
   project: Project;
 }
 
 const { project } = Astro.props;
-const color = LANGUAGE_COLORS[project.language] ?? "#adaeb0";
+const year = projectYear(project);
+const linkClass =
+  "text-sm text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand";
 ---
 
-<a
-  href={project.url}
-  target="_blank"
-  rel="noopener noreferrer"
-  class="card-hover group flex flex-col rounded-lg border border-white/10 p-5"
->
+<article class="card-hover flex flex-col rounded-lg border border-white/10 p-5">
   <div class="flex items-start justify-between gap-3">
-    <h3 class="font-semibold text-ink group-hover:text-brand">{project.name}</h3>
-    <span class="shrink-0 text-sm text-muted">★ {project.stars}</span>
+    <h3 class="font-semibold text-ink">{project.name}</h3>
+    <p class="shrink-0 text-sm text-muted">
+      <time datetime={String(year)}>{year}</time>
+      <span aria-hidden="true"> · </span>
+      <span>★ {project.stars}</span>
+      {
+        project.version && (
+          <>
+            <span aria-hidden="true"> · </span>
+            <span>{project.version}</span>
+          </>
+        )
+      }
+    </p>
   </div>
   <p class="mt-3 flex-1 text-sm leading-relaxed text-muted">
     {project.description}
   </p>
-  <p class="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted">
-    <span class="inline-flex items-center gap-2">
-      <span class="size-2.5 rounded-full" style={`background-color: ${color}`} aria-hidden="true"
-      ></span>
-      {project.language}
-    </span>
-    <span class="rounded-md border border-white/10 px-2 py-0.5">{project.status}</span>
+  <ul class="mt-4 flex flex-wrap gap-2">
     {
-      project.version && (
-        <span class="rounded-md border border-white/10 px-2 py-0.5">{project.version}</span>
+      project.technologies.map((tech) => (
+        <li>
+          <a
+            href={techHref(tech)}
+            class="rounded-md border border-white/10 px-2 py-0.5 text-xs text-muted hover:border-brand hover:text-brand"
+          >
+            {tech}
+          </a>
+        </li>
+      ))
+    }
+    {
+      project.status === "archived" && (
+        <li>
+          <span class="rounded-md border border-white/10 px-2 py-0.5 text-xs text-muted">
+            archived
+          </span>
+        </li>
+      )
+    }
+  </ul>
+  <p class="mt-4 flex flex-wrap gap-x-4 gap-y-2">
+    <a
+      href={project.githubUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      class={linkClass}
+      aria-label={`${project.name} on GitHub (opens in a new tab)`}
+    >
+      GitHub
+    </a>
+    {
+      project.liveUrl && (
+        <a
+          href={project.liveUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class={linkClass}
+          aria-label={`${project.name} live demo (opens in a new tab)`}
+        >
+          Live
+        </a>
+      )
+    }
+    {
+      project.docsUrl && (
+        <a
+          href={project.docsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class={linkClass}
+          aria-label={`${project.name} documentation (opens in a new tab)`}
+        >
+          Docs
+        </a>
       )
     }
   </p>
-</a>
+</article>

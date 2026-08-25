@@ -7,11 +7,12 @@ import ProjectCard from "../components/project-card.astro";
 import SectionPrompt from "../components/section-prompt.astro";
 import Typewriter from "../components/typewriter.astro";
 import Layout from "../layouts/terminal.astro";
-import { getFeaturedProjects } from "../lib/github-projects";
+import { getLatestProjects, projectsUnavailable } from "../lib/projects";
 import { GITHUB_URL, INSTAGRAM_URL, LINKEDIN_URL, SITE_DESCRIPTION, SITE_TITLE } from "../lib/site";
 import { getEnglishPosts, readingMinutes } from "../lib/blog";
 
-const projects = await getFeaturedProjects();
+const projects = await getLatestProjects();
+const projectsFailed = await projectsUnavailable();
 const posts = (await getEnglishPosts())
   .sort((a, b) => b.data.publishedAt.valueOf() - a.data.publishedAt.valueOf())
   .slice(0, 3);
@@ -64,12 +65,34 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry py-16";
   <section id="projects" class={reveal}>
     <SectionPrompt
       command="~ ls -la projects/"
-      comment="Featured repositories, fetched at build time"
+      comment={projectsFailed
+        ? "exit 1 — could not list repositories"
+        : "Latest work, newest first"}
     />
     <h2 class="mb-6 text-xl font-semibold">Projects</h2>
-    <div class="grid gap-4 md:grid-cols-2">
-      {projects.map((project) => <ProjectCard project={project} />)}
-    </div>
+    {
+      projectsFailed ? (
+        <p class="text-sm text-muted" role="status">
+          Unable to load projects right now.
+        </p>
+      ) : (
+        <>
+          <div class="grid gap-4 md:grid-cols-2">
+            {projects.map((project) => (
+              <ProjectCard project={project} />
+            ))}
+          </div>
+          <p class="mt-6">
+            <a
+              href="/projects/"
+              class="text-sm text-brand underline decoration-brand/40 underline-offset-4 hover:decoration-brand"
+            >
+              View all projects →
+            </a>
+          </p>
+        </>
+      )
+    }
   </section>
 
   <section id="experience" class={reveal}>

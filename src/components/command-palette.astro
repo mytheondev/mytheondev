@@ -1,5 +1,6 @@
 ---
 import { getEnglishPosts } from "../lib/blog";
+import { getProjects } from "../lib/projects";
 import { NAV_ITEMS, navHref } from "../lib/site";
 
 interface Props {
@@ -36,6 +37,15 @@ const posts = (await getEnglishPosts())
     publishedAt: post.data.publishedAt.valueOf(),
     search: `${post.data.title} ${post.data.description} ${post.data.tags.join(" ")} ${post.id}`,
   }));
+
+const projects = (await getProjects()).map((project) => ({
+  name: project.name,
+  description: project.description,
+  technologies: project.technologies,
+  href: project.githubUrl,
+  publishedAt: project.publishedAt.valueOf(),
+  search: `${project.name} ${project.description} ${project.technologies.join(" ")} github`,
+}));
 ---
 
 <div
@@ -107,6 +117,47 @@ const posts = (await getEnglishPosts())
         ))
       }
 
+      {
+        projects.length > 0 && (
+          <>
+            <p
+              data-palette-group="projects"
+              class="px-3 pt-3 pb-1 text-[11px] tracking-wide text-muted uppercase"
+            >
+              Projects
+            </p>
+            {projects.map((project) => (
+              <a
+                id={`palette-project-${project.name}`}
+                href={project.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-palette-item
+                data-palette-group="projects"
+                data-search={project.search}
+                data-title={project.name}
+                data-tags={project.technologies.join(" ")}
+                data-description={project.description}
+                data-slug={project.name}
+                data-published={String(project.publishedAt)}
+                role="option"
+                aria-selected="false"
+                class="palette-item"
+                tabindex="-1"
+                aria-label={`${project.name} on GitHub (opens in a new tab)`}
+              >
+                <span class="min-w-0">
+                  <span class="block truncate text-ink">{project.name}</span>
+                  <span class="mt-0.5 block truncate text-xs text-muted">
+                    {project.technologies.join(" · ")}
+                  </span>
+                </span>
+              </a>
+            ))}
+          </>
+        )
+      }
+
       <p
         data-palette-group="posts"
         class="px-3 pt-3 pb-1 text-[11px] tracking-wide text-muted uppercase"
@@ -140,7 +191,7 @@ const posts = (await getEnglishPosts())
       }
 
       <p data-palette-empty class="hidden px-3 py-6 text-center text-sm text-muted">
-        No matching pages or posts.
+        No matching pages, posts, or projects.
       </p>
     </div>
   </div>
@@ -212,6 +263,7 @@ const posts = (await getEnglishPosts())
     const IDLE_POST_LIMIT = 8;
     const SEARCH_POST_LIMIT = 8;
     const navEls = items().filter((item) => item.dataset.paletteGroup === "nav");
+    const originalProjectOrder = items().filter((item) => item.dataset.paletteGroup === "projects");
     const originalPostOrder = items().filter((item) => item.dataset.paletteGroup === "posts");
 
     const visibleItems = () => items().filter((item) => !item.classList.contains("hidden"));
@@ -276,6 +328,14 @@ const posts = (await getEnglishPosts())
         if (match) navVisible += 1;
       }
 
+      let projectsVisible = 0;
+      for (const item of originalProjectOrder) {
+        const hay = (item.dataset.search ?? "").toLowerCase();
+        const match = terms.length === 0 || terms.every((term) => hay.includes(term));
+        item.classList.toggle("hidden", !match);
+        if (match) projectsVisible += 1;
+      }
+
       const ranked = originalPostOrder
         .map((item, index) => {
           const hay = (item.dataset.search ?? "").toLowerCase();
@@ -318,12 +378,13 @@ const posts = (await getEnglishPosts())
       palette
         .querySelectorAll<HTMLElement>("[data-palette-group]:not([data-palette-item])")
         .forEach((label) => {
-          const group = label.dataset.paletteGroup;
-          const count = group === "nav" ? navVisible : postsVisible;
+          const group = label.dataset.paletteGroup ?? "";
+          const count =
+            group === "nav" ? navVisible : group === "projects" ? projectsVisible : postsVisible;
           label.classList.toggle("hidden", count === 0);
         });
 
-      empty?.classList.toggle("hidden", navVisible + postsVisible > 0);
+      empty?.classList.toggle("hidden", navVisible + projectsVisible + postsVisible > 0);
       setActive(0);
     };
 

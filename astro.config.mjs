@@ -30,7 +30,9 @@ export default defineConfig({
       },
     }),
     mdx(),
-    sitemap(),
+    sitemap({
+      filter: (page) => !page.includes("/404"),
+    }),
   ],
   fonts: [
     {
