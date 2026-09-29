@@ -1,38 +1,46 @@
 ---
 import { HEATMAP_API_URL } from "../lib/github-heatmap";
+
+const kpiClass = "flex flex-col gap-0.5 rounded-2xl bg-surface-2 px-4 py-3.5";
+const kpiValueClass = "font-display text-2xl font-semibold tracking-tight text-ink md:text-3xl";
 ---
 
 <div id="github-heatmap" data-api={HEATMAP_API_URL}>
-  <div class="flex flex-wrap items-end justify-between gap-3">
-    <p class="text-sm text-muted">
-      <span data-heatmap-total>—</span> contributions in the last{" "}
-      <span data-heatmap-range>year</span>
-    </p>
-    <p class="text-sm text-muted">
-      Best streak: <span data-heatmap-streak>—</span>
-    </p>
-  </div>
+  <dl class="grid grid-cols-2 gap-2 md:grid-cols-3 md:gap-3">
+    <div class={kpiClass}>
+      <dt class="text-xs text-muted">Contributions · <span data-heatmap-range>last year</span></dt>
+      <dd class={kpiValueClass} data-heatmap-total>—</dd>
+    </div>
+    <div class={kpiClass}>
+      <dt class="text-xs text-muted">Best streak</dt>
+      <dd class={kpiValueClass} data-heatmap-streak>—</dd>
+    </div>
+    <div class:list={[kpiClass, "hidden md:flex"]}>
+      <dt class="text-xs text-muted">Active days</dt>
+      <dd class={kpiValueClass} data-heatmap-active>—</dd>
+    </div>
+  </dl>
 
-  <div data-heatmap-grid class="mt-5 min-w-0" aria-label="GitHub contribution heatmap"></div>
+  <div data-heatmap-grid class="mt-6 min-w-0" aria-label="GitHub contribution heatmap"></div>
 
-  <p data-heatmap-error class="mt-4 hidden text-sm text-brand" role="status"></p>
+  <p data-heatmap-error class="mt-4 hidden text-sm text-muted" role="status"></p>
 
   <div class="mt-4 flex items-center justify-end gap-1 text-xs text-muted">
-    <span>Less</span>
-    <span class="size-2.5 rounded-full bg-brand/0 ring-1 ring-white/10"></span>
-    <span class="size-2.5 rounded-full bg-brand/15"></span>
-    <span class="size-2.5 rounded-full bg-brand/35"></span>
-    <span class="size-2.5 rounded-full bg-brand/60"></span>
-    <span class="size-2.5 rounded-full bg-brand"></span>
-    <span>More</span>
+    <span class="mr-1">Less</span>
+    <span class="size-2.5 rounded-full bg-heat-0 ring-1 ring-line"></span>
+    <span class="size-2.5 rounded-full bg-heat-1"></span>
+    <span class="size-2.5 rounded-full bg-heat-2"></span>
+    <span class="size-2.5 rounded-full bg-heat-3"></span>
+    <span class="size-2.5 rounded-full bg-heat-4"></span>
+    <span class="ml-1">More</span>
   </div>
 </div>
 
 <script>
   import {
+    activeDays,
     bestStreak,
     filterLastSixMonths,
-    HEATMAP_LEVEL_OPACITY,
     monthLabels,
     sumContributions,
     WEEKDAY_LABELS,
@@ -46,6 +54,7 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
     const totalEl = root.querySelector("[data-heatmap-total]");
     const rangeEl = root.querySelector("[data-heatmap-range]");
     const streakEl = root.querySelector("[data-heatmap-streak]");
+    const activeEl = root.querySelector("[data-heatmap-active]");
     const gridEl = root.querySelector("[data-heatmap-grid]");
     const errorEl = root.querySelector("[data-heatmap-error]");
     const compact = window.matchMedia("(max-width: 767px)");
@@ -70,9 +79,10 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
         return;
       }
 
-      if (totalEl) totalEl.textContent = String(sumContributions(days));
-      if (rangeEl) rangeEl.textContent = mobile ? " 6 months" : "year";
+      if (totalEl) totalEl.textContent = sumContributions(days).toLocaleString("en-US");
+      if (rangeEl) rangeEl.textContent = mobile ? "6 months" : "last year";
       if (streakEl) streakEl.textContent = `${bestStreak(days)} days`;
+      if (activeEl) activeEl.textContent = String(activeDays(days));
 
       const weeks = weeksFromDays(days);
       const months = monthLabels(weeks);
@@ -81,14 +91,15 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
       layout.className = "flex w-full min-w-0 items-stretch gap-2";
 
       const weekdays = document.createElement("div");
-      weekdays.className = "flex w-8 shrink-0 flex-col";
+      weekdays.className = "flex w-7 shrink-0 flex-col";
       weekdays.setAttribute("aria-hidden", "true");
 
       const weekdaySpacer = document.createElement("div");
       weekdaySpacer.className = "h-4 shrink-0";
 
       const weekdayCol = document.createElement("div");
-      weekdayCol.className = "grid flex-1 grid-rows-7 gap-1 text-[10px] leading-none text-muted";
+      weekdayCol.className =
+        "grid flex-1 grid-rows-7 gap-[3px] font-mono text-[10px] leading-none text-muted";
 
       for (const label of WEEKDAY_LABELS) {
         const row = document.createElement("span");
@@ -103,7 +114,7 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
       chart.className = "flex min-w-0 flex-1 flex-col gap-1";
 
       const labels = document.createElement("div");
-      labels.className = "grid h-4 w-full gap-1 text-[10px] leading-none text-muted";
+      labels.className = "grid h-4 w-full gap-[3px] font-mono text-[10px] leading-none text-muted";
       labels.style.gridTemplateColumns = columns(weeks.length);
       labels.setAttribute("aria-hidden", "true");
 
@@ -119,7 +130,7 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
       });
 
       const grid = document.createElement("div");
-      grid.className = "grid w-full flex-1 gap-1 bg-surface";
+      grid.className = "grid w-full flex-1 gap-[3px]";
       grid.style.gridTemplateColumns = columns(weeks.length);
       grid.style.gridTemplateRows = "repeat(7, minmax(0, 1fr))";
       grid.style.gridAutoFlow = "column";
@@ -128,14 +139,12 @@ import { HEATMAP_API_URL } from "../lib/github-heatmap";
         for (const day of week) {
           const cell = document.createElement("span");
           const level = Math.min(Math.max(day.level, 0), 4);
-          const opacity = HEATMAP_LEVEL_OPACITY[level];
-          cell.className =
-            "aspect-square w-full min-h-0 rounded-2xs ring-1 ring-white/10 sm:rounded-xs";
-          cell.style.backgroundColor =
-            day.date === ""
-              ? "transparent"
-              : `color-mix(in oklab, var(--color-brand) ${opacity * 100}%, transparent)`;
-          if (day.date) {
+          cell.className = "aspect-square w-full min-h-0 rounded-full";
+          if (day.date === "") {
+            cell.style.backgroundColor = "transparent";
+          } else {
+            cell.style.backgroundColor = `var(--c-heat-${level})`;
+            if (level === 0) cell.classList.add("ring-1", "ring-line", "ring-inset");
             cell.title = `${day.date}: ${day.count} contribution${day.count === 1 ? "" : "s"}`;
           }
           grid.append(cell);

@@ -1,12 +1,19 @@
 <script>
   import mermaid from "mermaid";
-  import { mermaidClientConfig } from "../lib/mermaid-theme";
+  import { mermaidClientConfig, type ThemeMode } from "../lib/mermaid-theme";
 
   const MIN_SCALE = 0.5;
   const MAX_SCALE = 3;
   const SCALE_STEP = 0.25;
 
   const root = document.querySelector(".article-body");
+
+  const currentMode = (): ThemeMode =>
+    document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+
+  // Importing mermaid enables startOnLoad by default, which renders any
+  // unprocessed diagram with the stock theme. Configure it before that runs.
+  mermaid.initialize(mermaidClientConfig(currentMode()));
 
   function clamp(value: number, min: number, max: number) {
     return Math.min(max, Math.max(min, value));
@@ -151,7 +158,7 @@
       void (async () => {
         await document.fonts.ready;
         await Promise.all(diagrams.map((pre) => waitForProcessed(pre)));
-        mermaid.initialize(mermaidClientConfig);
+        mermaid.initialize(mermaidClientConfig(currentMode()));
         for (const pre of diagrams) {
           try {
             await rerender(pre);
@@ -160,6 +167,17 @@
           }
           enhanceViewport(pre);
         }
+
+        document.addEventListener("themechange", async () => {
+          mermaid.initialize(mermaidClientConfig(currentMode()));
+          for (const pre of diagrams) {
+            try {
+              await rerender(pre);
+            } catch {
+              // Keep the previous render if a diagram fails.
+            }
+          }
+        });
       })();
     }
   }

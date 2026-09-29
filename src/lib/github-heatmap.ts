@@ -11,8 +11,6 @@ export interface ContributionsResponse {
 
 export const HEATMAP_API_URL = "https://github-contributions-api.jogruber.de/v4/mytheondev?y=last";
 
-export const HEATMAP_LEVEL_OPACITY = [0, 0.15, 0.35, 0.6, 1] as const;
-
 export const WEEKDAY_LABELS = ["", "Mon", "", "Wed", "", "Fri", ""] as const;
 
 export function filterLastSixMonths(
@@ -28,6 +26,10 @@ export function filterLastSixMonths(
 
 export function sumContributions(days: ContributionDay[]): number {
   return days.reduce((total, day) => total + day.count, 0);
+}
+
+export function activeDays(days: ContributionDay[]): number {
+  return days.filter((day) => day.count > 0).length;
 }
 
 export function bestStreak(days: ContributionDay[]): number {

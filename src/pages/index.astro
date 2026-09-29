@@ -4,11 +4,17 @@ import BlogCard from "../components/blog-card.astro";
 import ExperienceCard from "../components/experience-card.astro";
 import GithubHeatmap from "../components/github-heatmap.astro";
 import ProjectCard from "../components/project-card.astro";
-import SectionPrompt from "../components/section-prompt.astro";
-import Typewriter from "../components/typewriter.astro";
-import Layout from "../layouts/terminal.astro";
+import SectionHeading from "../components/section-heading.astro";
+import Layout from "../layouts/site.astro";
 import { getLatestProjects, projectsUnavailable } from "../lib/projects";
-import { GITHUB_URL, INSTAGRAM_URL, LINKEDIN_URL, SITE_DESCRIPTION, SITE_TITLE } from "../lib/site";
+import {
+  GITHUB_URL,
+  GITHUB_USER,
+  INSTAGRAM_URL,
+  LINKEDIN_URL,
+  SITE_DESCRIPTION,
+  SITE_TITLE,
+} from "../lib/site";
 import { getEnglishPosts, readingMinutes } from "../lib/blog";
 
 const projects = await getLatestProjects();
@@ -32,130 +38,183 @@ const stack = [
   "Kotlin",
 ];
 
-const reveal = "animate-fade-in-up timeline-view animate-range-entry py-16";
+const contacts = [
+  { href: LINKEDIN_URL, label: "LinkedIn", handle: "linkedin.com/in/mytheon", primary: true },
+  { href: GITHUB_URL, label: "GitHub", handle: "github.com/mytheondev", primary: false },
+  { href: INSTAGRAM_URL, label: "Instagram", handle: "instagram.com/mytheon.dev", primary: false },
+];
+
+const reveal = "animate-fade-in-up timeline-view animate-range-entry";
+const card = "rounded-3xl border border-line bg-surface p-6 md:p-7";
 ---
 
 <Layout title={SITE_TITLE} description={SITE_DESCRIPTION} home>
-  <section id="about">
-    <SectionPrompt command="~ whoami" comment="Identity dump — name, role, and what I build" />
-    <p class="text-sm text-muted">Hi! I'm a</p>
-    <Typewriter
-      text="Software Engineer"
-      class="mt-2 text-3xl font-bold tracking-tight md:text-5xl"
-    />
+  <section id="about" class="flex flex-col gap-7 pt-10 pb-12 md:pt-20 md:pb-16">
     <h2 class="sr-only">About</h2>
-    <p class="mt-4 max-w-3xl text-base leading-relaxed text-muted">
-      I still get a kick out of turning messy problems into systems people can actually use. APIs,
-      data, the interface someone touches — I want the whole path to feel intentional, not bolted
-      on. Architecture and clean code are how I stay honest when things get heavy.
+    <p
+      class="inline-flex h-8 items-center gap-2 self-start rounded-full bg-brand-soft pr-3.5 pl-2.5 text-xs font-medium text-ink md:text-[13px]"
+    >
+      <span class="size-2 rounded-full bg-brand" aria-hidden="true"></span>
+      Full Stack Engineer at Interseguro
     </p>
+    <h1
+      class="max-w-[1040px] font-display text-[40px] leading-[1.04] font-semibold tracking-[-0.035em] text-ink md:text-[76px] md:leading-[1.02]"
+    >
+      Software engineer turning messy problems into systems <span class="text-brand"
+        >people actually use.</span
+      >
+    </h1>
+    <div class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between md:gap-12">
+      <p class="max-w-[600px] text-base leading-relaxed text-muted md:text-lg">
+        10+ years building APIs and web apps. APIs, data, the interface someone touches — I want the
+        whole path to feel intentional, not bolted on. Architecture and clean code are how I stay
+        honest when things get heavy.
+      </p>
+      <div class="grid grid-cols-2 gap-2 md:flex md:gap-3">
+        <a href="#projects" class="pill-primary justify-center">
+          View projects
+          <svg
+            class="hidden size-4 md:block"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg
+          >
+        </a>
+        <a href="/blog/" class="pill-secondary justify-center">Read the blog</a>
+      </div>
+    </div>
   </section>
 
-  <section id="stack" class={reveal}>
-    <SectionPrompt command="~ ls stack/" comment="Languages, runtimes, and the platforms I use" />
-    <h2 class="mb-6 text-xl font-semibold">Stack</h2>
-    <ul class="flex flex-wrap gap-2">
-      {
-        stack.map((item) => (
-          <li class="rounded-md border border-white/10 px-2.5 py-1 text-xs text-ink">{item}</li>
-        ))
-      }
-    </ul>
-  </section>
+  <div class="grid gap-3 md:grid-cols-12 md:gap-4">
+    <section id="github" class:list={[card, "flex flex-col gap-5 md:col-span-8", reveal]}>
+      <div class="flex items-start justify-between gap-4">
+        <SectionHeading eyebrow="GitHub · contributions" title="Contribution activity" size="md" />
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="pill-link hidden h-9 shrink-0 sm:inline-flex"
+          aria-label={`@${GITHUB_USER} on GitHub (opens in a new tab)`}
+        >
+          @{GITHUB_USER} <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+      <GithubHeatmap />
+    </section>
 
-  <section id="projects" class={reveal}>
-    <SectionPrompt
-      command="~ ls -la projects/"
-      comment={projectsFailed
-        ? "exit 1 — could not list repositories"
-        : "Latest work, newest first"}
-    />
-    <h2 class="mb-6 text-xl font-semibold">Projects</h2>
+    <aside
+      aria-label="At a glance"
+      class:list={[
+        "flex flex-col justify-between gap-6 rounded-3xl bg-brand p-6 text-on-brand md:col-span-4 md:p-7",
+        reveal,
+      ]}
+    >
+      <p class="font-mono text-xs tracking-wide uppercase opacity-85">At a glance</p>
+      <p class="flex items-center gap-4 md:flex-col md:items-start md:gap-1">
+        <span class="font-display text-6xl leading-[0.9] font-bold tracking-[-0.05em] md:text-[88px]"
+          >10+</span
+        >
+        <span class="text-[15px] leading-snug font-medium md:text-[17px]"
+          >years shipping APIs and web apps</span
+        >
+      </p>
+      <dl class="hidden flex-col gap-2.5 border-t border-current/40 pt-4 text-sm md:flex">
+        <div class="flex justify-between gap-4"><dt>Now</dt><dd class="font-semibold">Interseguro</dd></div>
+        <div class="flex justify-between gap-4">
+          <dt>Focus</dt><dd class="font-semibold">NestJS · Go · Vue</dd>
+        </div>
+        <div class="flex justify-between gap-4">
+          <dt>Writing</dt><dd class="font-semibold">Production notes</dd>
+        </div>
+      </dl>
+    </aside>
+
+    <section id="stack" class:list={[card, "flex flex-col gap-5 md:col-span-5", reveal]}>
+      <SectionHeading eyebrow="Stack" title="Tools I reach for" size="md" />
+      <ul class="flex flex-wrap gap-2">
+        {
+          stack.map((item) => (
+            <li class="flex h-9 items-center rounded-full bg-surface-2 px-3.5 text-sm text-ink">
+              {item}
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+
+    <section id="experience" class:list={[card, "flex flex-col gap-5 md:col-span-7", reveal]}>
+      <SectionHeading eyebrow="Experience" title="Where I've built" size="md" />
+      <div>
+        <ExperienceCard
+          current
+          role="Full Stack Engineer"
+          company="Interseguro"
+          dates="2026 — present"
+          description="Part of the Customer Experience squad, developing end-to-end solutions that directly impact the user. I work on frontend and backend, collaborating with the team to build maintainable, scalable, user-centered digital products."
+          stack={[
+            "Java",
+            "Go",
+            "TypeScript",
+            "NodeJS",
+            "Vue",
+            "MongoDB",
+            "PostgreSQL",
+            "BigQuery",
+            "Docker",
+            "GCP",
+          ]}
+        />
+        <ExperienceCard
+          role="Full Stack Developer"
+          company="Nativos Digitales"
+          dates="2016 — 2025"
+          description="Built and maintained web applications across the entire stack. Developed features using Astro, Next.js, React, .NET and Node.js, integrated with PostgreSQL, MySQL and SQL Server, collaborating with the team to deliver projects on time — from UI components to APIs and databases."
+          stack={[
+            "TypeScript",
+            "Astro",
+            "NextJS",
+            "React",
+            ".NET",
+            "NestJS",
+            "Symfony",
+            "PostgreSQL",
+            "MySQL",
+            "SQL Server",
+            "Docker",
+          ]}
+        />
+      </div>
+    </section>
+  </div>
+
+  <section id="projects" class:list={["flex scroll-mt-24 flex-col gap-8 pt-20 md:pt-28", reveal]}>
+    <SectionHeading eyebrow="Open source" title="Selected projects">
+      {!projectsFailed && <a slot="action" href="/projects/" class="pill-link">All projects →</a>}
+    </SectionHeading>
     {
       projectsFailed ? (
         <p class="text-sm text-muted" role="status">
           Unable to load projects right now.
         </p>
       ) : (
-        <>
-          <div class="grid gap-4 md:grid-cols-2">
-            {projects.map((project) => (
-              <ProjectCard project={project} />
-            ))}
-          </div>
-          <p class="mt-6">
-            <a
-              href="/projects/"
-              class="text-sm text-brand underline decoration-brand/40 underline-offset-4 hover:decoration-brand"
-            >
-              View all projects →
-            </a>
-          </p>
-        </>
+        <div class="grid gap-3 md:grid-cols-2 md:gap-4">
+          {projects.map((project) => (
+            <ProjectCard project={project} />
+          ))}
+        </div>
       )
     }
   </section>
 
-  <section id="experience" class={reveal}>
-    <SectionPrompt
-      command="~ cat experience.log"
-      comment="Roles, dates, and the stacks behind them"
-    />
-    <h2 class="mb-6 text-xl font-semibold">Experience</h2>
-    <div class="space-y-4">
-      <ExperienceCard
-        role="Full Stack Engineer"
-        company="Interseguro"
-        dates="2026, present"
-        description="Part of the Customer Experience squad, developing end-to-end solutions that directly impact the user. I work on frontend and backend, collaborating with the team to build maintainable, scalable, user-centered digital products."
-        stack={[
-          "Java",
-          "Go",
-          "TypeScript",
-          "NodeJS",
-          "Vue",
-          "MongoDB",
-          "PostgreSQL",
-          "BigQuery",
-          "Docker",
-          "GCP",
-        ]}
-      />
-      <ExperienceCard
-        role="Full Stack Developer"
-        company="Nativos Digitales"
-        dates="2016 – 2025"
-        description="Built and maintained web applications across the entire stack. Developed features using Astro, Next.js, React, .NET and Node.js, integrated with PostgreSQL, MySQL and SQL Server, collaborating with the team to deliver projects on time — from UI components to APIs and databases."
-        stack={[
-          "TypeScript",
-          "Astro",
-          "NextJS",
-          "React",
-          ".NET",
-          "NestJS",
-          "Symfony",
-          "PostgreSQL",
-          "MySQL",
-          "SQL Server",
-          "Docker",
-        ]}
-      />
-    </div>
-  </section>
-
-  <section id="github" class={reveal}>
-    <SectionPrompt command="~ curl api.github.com/stats" comment="My GitHub contribution graph" />
-    <h2 class="mb-6 text-xl font-semibold">GitHub</h2>
-    <GithubHeatmap />
-  </section>
-
-  <section id="blog" class={reveal}>
-    <SectionPrompt
-      command="~ ls blog/*.md"
-      comment="Latest notes — indexable markdown, no client-side fetch"
-    />
-    <h2 class="mb-6 text-xl font-semibold">Blog</h2>
-    <div class="grid gap-4">
+  <section id="blog" class:list={["flex scroll-mt-24 flex-col gap-8 pt-20 md:pt-28", reveal]}>
+    <SectionHeading eyebrow="Production notes" title="From the blog">
+      <a slot="action" href="/blog/" class="pill-link">All posts →</a>
+    </SectionHeading>
+    <div class="grid gap-3 md:grid-cols-3 md:gap-4">
       {
         posts.map((post) => (
           <BlogCard
@@ -169,51 +228,46 @@ const reveal = "animate-fade-in-up timeline-view animate-range-entry py-16";
         ))
       }
     </div>
-    <p class="mt-6">
-      <a
-        href="/blog/"
-        class="text-sm text-brand underline decoration-brand/40 underline-offset-4 hover:decoration-brand"
-      >
-        View all posts →
-      </a>
-    </p>
   </section>
 
-  <section id="contact" class={reveal}>
-    <SectionPrompt command="~ cat contact.md" comment="Open a channel — follow the signal" />
-    <h2 class="mb-6 text-xl font-semibold">Contact</h2>
-
-    <ul class="space-y-4 text-sm">
-      <li>
-        <a
-          href={GITHUB_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
-        >
-          github.com/mytheondev
-        </a>
-      </li>
-      <li>
-        <a
-          href={LINKEDIN_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
-        >
-          linkedin.com/in/mytheon
-        </a>
-      </li>
-      <li>
-        <a
-          href={INSTAGRAM_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
-        >
-          instagram.com/mytheon.dev
-        </a>
-      </li>
+  <section
+    id="contact"
+    class:list={[
+      "mt-20 flex scroll-mt-24 flex-col gap-8 rounded-[32px] border border-line bg-surface p-6 md:mt-28 md:flex-row md:items-center md:justify-between md:gap-12 md:p-16",
+      reveal,
+    ]}
+  >
+    <div class="flex flex-col gap-3">
+      <p class="eyebrow">Contact</p>
+      <h2
+        class="font-display text-[32px] leading-[1.05] font-semibold tracking-[-0.03em] text-ink md:text-[52px]"
+      >
+        Open a channel.<br class="hidden md:block" />
+        <span class="text-muted">Follow the signal.</span>
+      </h2>
+    </div>
+    <ul class="flex w-full flex-col gap-2.5 md:w-[360px]">
+      {
+        contacts.map((contact) => (
+          <li>
+            <a
+              href={contact.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              class:list={[
+                "flex h-13 items-center justify-between rounded-full px-5 text-[15px] transition-colors",
+                contact.primary
+                  ? "bg-brand font-semibold text-on-brand hover:brightness-110"
+                  : "border border-line-strong font-medium text-ink hover:bg-surface-2",
+              ]}
+              aria-label={`${contact.handle} (opens in a new tab)`}
+            >
+              {contact.label}
+              <span aria-hidden="true">↗</span>
+            </a>
+          </li>
+        ))
+      }
       <!-- <li>
           <CopyEmail />
         </li> -->

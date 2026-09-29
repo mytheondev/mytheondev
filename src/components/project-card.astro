@@ -8,16 +8,39 @@ interface Props {
 const { project } = Astro.props;
 const year = projectYear(project);
 const linkClass =
-  "text-sm text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand";
+  "inline-flex items-center gap-1 text-sm font-medium text-brand underline decoration-transparent underline-offset-4 hover:decoration-brand";
 ---
 
-<article class="card-hover flex flex-col rounded-lg border border-white/10 p-5">
+<article class="card-hover flex h-full flex-col rounded-3xl border border-line bg-surface p-6 md:p-7">
   <div class="flex items-start justify-between gap-3">
-    <h3 class="font-semibold text-ink">{project.name}</h3>
-    <p class="shrink-0 text-sm text-muted">
+    <h3
+      class="flex min-w-0 items-center gap-2.5 font-display text-xl font-semibold tracking-tight text-ink"
+    >
+      <svg
+        class="size-5 shrink-0 text-brand"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path
+          d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v1"
+        ></path>
+        <circle cx="16" cy="19" r="2"></circle>
+        <circle cx="16" cy="12" r="2"></circle>
+        <path d="M16 14v3"></path>
+        <path d="M18 19h3"></path>
+        <path d="M14 19h-2"></path>
+      </svg>
+      <span class="truncate">{project.name}</span>
+    </h3>
+    <p class="shrink-0 pt-1 font-mono text-xs text-muted">
       <time datetime={String(year)}>{year}</time>
       <span aria-hidden="true"> · </span>
-      <span>★ {project.stars}</span>
+      <span><span aria-hidden="true">★</span><span class="sr-only">Stars:</span> {project.stars}</span>
       {
         project.version && (
           <>
@@ -28,67 +51,69 @@ const linkClass =
       }
     </p>
   </div>
-  <p class="mt-3 flex-1 text-sm leading-relaxed text-muted">
+  <p class="mt-2.5 flex-1 text-[15px] leading-relaxed text-muted">
     {project.description}
   </p>
-  <ul class="mt-4 flex flex-wrap gap-2">
-    {
-      project.technologies.map((tech) => (
-        <li>
+  <div class="mt-5 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+    <ul class="flex flex-wrap gap-1.5">
+      {
+        project.technologies.map((tech) => (
+          <li>
+            <a
+              href={techHref(tech)}
+              class="inline-flex rounded-full bg-surface-2 px-2.5 py-1 text-xs text-ink transition-colors hover:text-brand"
+            >
+              {tech}
+            </a>
+          </li>
+        ))
+      }
+      {
+        project.status === "archived" && (
+          <li>
+            <span class="inline-flex rounded-full border border-line-strong px-2.5 py-1 text-xs text-muted">
+              archived
+            </span>
+          </li>
+        )
+      }
+    </ul>
+    <p class="flex flex-wrap gap-x-4 gap-y-2">
+      <a
+        href={project.githubUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class={linkClass}
+        aria-label={`${project.name} on GitHub (opens in a new tab)`}
+      >
+        GitHub <span aria-hidden="true">↗</span>
+      </a>
+      {
+        project.liveUrl && (
           <a
-            href={techHref(tech)}
-            class="rounded-md border border-white/10 px-2 py-0.5 text-xs text-muted hover:border-brand hover:text-brand"
+            href={project.liveUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            class={linkClass}
+            aria-label={`${project.name} live demo (opens in a new tab)`}
           >
-            {tech}
+            Live <span aria-hidden="true">↗</span>
           </a>
-        </li>
-      ))
-    }
-    {
-      project.status === "archived" && (
-        <li>
-          <span class="rounded-md border border-white/10 px-2 py-0.5 text-xs text-muted">
-            archived
-          </span>
-        </li>
-      )
-    }
-  </ul>
-  <p class="mt-4 flex flex-wrap gap-x-4 gap-y-2">
-    <a
-      href={project.githubUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      class={linkClass}
-      aria-label={`${project.name} on GitHub (opens in a new tab)`}
-    >
-      GitHub
-    </a>
-    {
-      project.liveUrl && (
-        <a
-          href={project.liveUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          class={linkClass}
-          aria-label={`${project.name} live demo (opens in a new tab)`}
-        >
-          Live
-        </a>
-      )
-    }
-    {
-      project.docsUrl && (
-        <a
-          href={project.docsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          class={linkClass}
-          aria-label={`${project.name} documentation (opens in a new tab)`}
-        >
-          Docs
-        </a>
-      )
-    }
-  </p>
+        )
+      }
+      {
+        project.docsUrl && (
+          <a
+            href={project.docsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            class={linkClass}
+            aria-label={`${project.name} documentation (opens in a new tab)`}
+          >
+            Docs <span aria-hidden="true">↗</span>
+          </a>
+        )
+      }
+    </p>
+  </div>
 </article>

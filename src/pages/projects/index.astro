@@ -1,7 +1,7 @@
 ---
 import ProjectCard from "../../components/project-card.astro";
-import SectionPrompt from "../../components/section-prompt.astro";
-import Layout from "../../layouts/terminal.astro";
+import SectionHeading from "../../components/section-heading.astro";
+import Layout from "../../layouts/site.astro";
 import {
   getProjects,
   projectTechnologies,
@@ -18,14 +18,12 @@ const description =
   "Open-source libraries and tools — TypeScript, Node.js, Tailwind, and editor tooling from Mytheon.";
 ---
 
-<Layout title={title} description={description} activeNav="projects" titlePath="~/projects">
-  <section>
-    <SectionPrompt
-      command="~ ls -la projects/"
-      comment={unavailable ? "Exit 1 — could not list repositories" : "All projects, newest first"}
-    />
-    <h1 class="mb-3 text-3xl font-bold tracking-tight">Projects</h1>
-    <p class="mb-8 max-w-[68ch] text-base leading-7 text-muted">{description}</p>
+<Layout title={title} description={description} activeNav="projects">
+  <section class="pt-10 md:pt-16">
+    <SectionHeading eyebrow="Open source" title="Projects" as="h1" />
+    <p class="mt-4 mb-8 max-w-[68ch] text-base leading-relaxed text-muted md:text-lg">
+      {description}
+    </p>
 
     {
       unavailable ? (
@@ -41,7 +39,8 @@ const description =
                   <a
                     href="/projects/"
                     data-tech-chip=""
-                    class="rounded-md border border-white/10 px-2.5 py-1 text-xs text-ink hover:border-brand hover:text-brand"
+                    aria-current="page"
+                    class="tech-chip is-active"
                   >
                     All
                   </a>
@@ -51,7 +50,7 @@ const description =
                     <a
                       href={techHref(tech)}
                       data-tech-chip={tech}
-                      class="rounded-md border border-white/10 px-2.5 py-1 text-xs text-muted hover:border-brand hover:text-brand"
+                      class="tech-chip"
                     >
                       {tech}
                     </a>
@@ -60,13 +59,17 @@ const description =
               </ul>
             </nav>
           )}
-          <p data-tech-filter class="mb-6 hidden text-sm text-muted" role="status">
-            Filtered by <span data-tech-name />
+          <p
+            data-tech-filter
+            class="mb-6 hidden w-fit items-center gap-3 rounded-full bg-brand-soft py-1.5 pr-1.5 pl-4 text-sm text-ink [&:not(.hidden)]:flex"
+            role="status"
+          >
+            <span>Filtered by <strong class="font-semibold" data-tech-name /></span>
             <a
               href="/projects/"
-              class="ml-3 text-brand underline decoration-brand/40 underline-offset-4 hover:decoration-brand"
+              class="rounded-full bg-surface px-3 py-1 text-xs font-medium text-ink hover:text-brand"
             >
-              clear
+              Clear
             </a>
           </p>
           <div class="columns-1 gap-4 md:columns-2" data-project-list>
@@ -102,10 +105,7 @@ const description =
               for (const chip of document.querySelectorAll("[data-tech-chip]")) {
                 const value = chip.getAttribute("data-tech-chip") ?? "";
                 const active = value === tech;
-                chip.classList.toggle("border-brand", active);
-                chip.classList.toggle("text-brand", active);
-                chip.classList.toggle("text-muted", !active && value !== "");
-                chip.classList.toggle("text-ink", !active && value === "");
+                chip.classList.toggle("is-active", active);
                 if (active) chip.setAttribute("aria-current", "page");
                 else chip.removeAttribute("aria-current");
               }
@@ -143,10 +143,7 @@ const description =
       for (const chip of chips) {
         const value = chip.dataset.techChip ?? "";
         const active = tech ? value === tech : value === "";
-        chip.classList.toggle("border-brand", active);
-        chip.classList.toggle("text-brand", active);
-        chip.classList.toggle("text-muted", !active && value !== "");
-        chip.classList.toggle("text-ink", !active && value === "");
+        chip.classList.toggle("is-active", active);
         if (active) chip.setAttribute("aria-current", "page");
         else chip.removeAttribute("aria-current");
       }
@@ -231,3 +228,33 @@ const description =
     });
   }
 </script>
+
+<style>
+  .tech-chip {
+    display: inline-flex;
+    height: 2.25rem;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid var(--color-line);
+    background: var(--color-surface);
+    padding-inline: 0.875rem;
+    font-size: 0.8125rem;
+    color: var(--color-muted);
+    transition:
+      color 150ms,
+      border-color 150ms,
+      background-color 150ms;
+  }
+
+  .tech-chip:hover {
+    border-color: var(--color-line-strong);
+    color: var(--color-ink);
+  }
+
+  .tech-chip.is-active {
+    border-color: var(--color-brand);
+    background: var(--color-brand);
+    color: var(--color-on-brand);
+    font-weight: 600;
+  }
+</style>

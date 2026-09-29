@@ -9,13 +9,13 @@ interface Props {
 const { tags, class: className } = Astro.props;
 ---
 
-<ul class:list={["flex flex-wrap gap-2", className]}>
+<ul class:list={["flex flex-wrap gap-1.5", className]}>
   {
     tags.map((tag) => (
       <li>
         <a
           href={tagHref(tag)}
-          class="rounded-md border border-white/10 px-2 py-0.5 text-xs text-muted hover:border-brand hover:text-brand"
+          class="relative z-10 inline-flex rounded-full bg-brand-soft px-2.5 py-1 text-xs font-medium text-ink transition-colors hover:text-brand"
         >
           {tag}
         </a>

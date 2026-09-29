@@ -15,7 +15,11 @@ export default defineConfig({
   site: "https://www.mytheon.dev",
   markdown: {
     shikiConfig: {
-      theme: "github-dark-default",
+      themes: {
+        light: "github-light-default",
+        dark: "github-dark-default",
+      },
+      defaultColor: false,
       wrap: false,
     },
   },
@@ -26,7 +30,7 @@ export default defineConfig({
       mermaidConfig: {
         htmlLabels: true,
         fontFamily: mermaidFontFamily,
-        themeVariables: mermaidThemeVariables,
+        themeVariables: mermaidThemeVariables("dark"),
       },
     }),
     mdx(),
@@ -37,11 +41,27 @@ export default defineConfig({
   fonts: [
     {
       provider: fontProviders.google(),
-      name: "JetBrains Mono",
-      cssVariable: "--font-jetbrains-mono",
-      weights: [400, 500, 600, 700, 800],
+      name: "Geist",
+      cssVariable: "--font-geist",
+      weights: [400, 500, 600, 700],
+      styles: ["normal"],
+      fallbacks: ["sans-serif"],
+    },
+    {
+      provider: fontProviders.google(),
+      name: "Geist Mono",
+      cssVariable: "--font-geist-mono",
+      weights: [400, 500],
       styles: ["normal"],
       fallbacks: ["monospace"],
+    },
+    {
+      provider: fontProviders.google(),
+      name: "Bricolage Grotesque",
+      cssVariable: "--font-bricolage",
+      weights: [500, 600, 700],
+      styles: ["normal"],
+      fallbacks: ["sans-serif"],
     },
   ],
 });

@@ -10,11 +10,11 @@ const { headings } = Astro.props;
 
 <nav
   id="article-toc"
-  class="max-w-[68ch] lg:sticky lg:top-20 lg:z-10 lg:col-start-2 lg:row-start-1 lg:max-h-[calc(100svh-6rem)] lg:max-w-none lg:overflow-y-auto hidden lg:block"
+  class="hidden max-w-[68ch] rounded-2xl border border-line bg-surface p-5 lg:sticky lg:top-24 lg:z-10 lg:col-start-2 lg:row-start-1 lg:block lg:max-h-[calc(100svh-8rem)] lg:max-w-none lg:overflow-y-auto"
   aria-label="On this page"
 >
-  <p class="text-xs text-muted"># on this page</p>
-  <ol class="mt-2 space-y-1.5 text-sm leading-snug lg:text-xs">
+  <p class="eyebrow">On this page</p>
+  <ol class="mt-3 space-y-2 text-sm leading-snug">
     {
       headings.map((heading) => (
         <li>

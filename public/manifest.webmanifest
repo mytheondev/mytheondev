@@ -3,8 +3,8 @@
   "short_name": "mytheon",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0b0d10",
-  "theme_color": "#e0ed34",
+  "background_color": "#0b0d12",
+  "theme_color": "#4338ca",
   "icons": [
     {
       "src": "/favicon.svg",
@@ -12,9 +12,14 @@
       "sizes": "any"
     },
     {
-      "src": "/apple-touch-icon.png",
+      "src": "/icon-192.png",
       "type": "image/png",
-      "sizes": "180x180"
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
     }
   ]
 }

@@ -1,29 +1,29 @@
 ---
-import SectionPrompt from "../components/section-prompt.astro";
-import Layout from "../layouts/terminal.astro";
+import Layout from "../layouts/site.astro";
 
 const title = "404 — Mytheon";
 const description = "This path is not in the tree.";
 const links = [
-  { href: "/", label: "Home" },
-  { href: "/blog/", label: "Blog" },
-  { href: "/projects/", label: "Projects" },
+  { href: "/", label: "Home", primary: true },
+  { href: "/blog/", label: "Blog", primary: false },
+  { href: "/projects/", label: "Projects", primary: false },
 ];
 ---
 
-<Layout title={title} description={description} titlePath="~/404" robots="noindex">
-  <section>
-    <SectionPrompt command="~ cat 404" comment="no such file or directory" />
-    <h1 class="mb-3 text-3xl font-bold tracking-tight">404</h1>
-    <p class="mb-8 max-w-[68ch] text-base leading-7 text-muted">{description}</p>
-    <ul class="flex flex-wrap gap-x-4 gap-y-2">
+<Layout title={title} description={description} robots="noindex">
+  <section class="flex min-h-[60svh] flex-col items-start justify-center gap-6 py-16">
+    <p class="eyebrow">Error 404</p>
+    <h1
+      class="font-display text-[96px] leading-[0.9] font-bold tracking-[-0.05em] text-brand md:text-[160px]"
+    >
+      404
+    </h1>
+    <p class="max-w-[48ch] text-lg leading-relaxed text-muted md:text-xl">{description}</p>
+    <ul class="flex flex-wrap gap-2.5">
       {
         links.map((link) => (
           <li>
-            <a
-              href={link.href}
-              class="text-sm text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
-            >
+            <a href={link.href} class={link.primary ? "pill-primary" : "pill-secondary"}>
               {link.label}
             </a>
           </li>

@@ -13,9 +13,9 @@ const navItems = [
   {
     id: "home",
     command: "$ home",
-    description: "The terminal home",
+    description: "Back to the start",
     href: "/",
-    search: "$ home the terminal home",
+    search: "$ home back to the start",
   },
   ...NAV_ITEMS.map((item) => ({
     id: item.id,
@@ -50,7 +50,7 @@ const projects = (await getProjects()).map((project) => ({
 
 <div
   id="command-palette"
-  class="absolute inset-0 z-60 hidden items-start justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] md:items-start md:pt-[12vh]"
+  class="fixed inset-0 z-60 hidden items-start justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] md:items-start md:pt-[12vh]"
   role="dialog"
   aria-modal="true"
   aria-labelledby="palette-title"
@@ -58,7 +58,7 @@ const projects = (await getProjects()).map((project) => ({
   <!-- tw-animations: animate-fade-in-up animate-fade-out-down -->
   <button
     type="button"
-    class="absolute inset-0 cursor-pointer bg-surface/80 backdrop-blur-md md:rounded-lg"
+    class="absolute inset-0 cursor-pointer bg-bg/70 backdrop-blur-md"
     data-palette-backdrop
     tabindex="-1"
     aria-label="Close search"
@@ -66,12 +66,24 @@ const projects = (await getProjects()).map((project) => ({
   </button>
 
   <div
-    class="palette-panel relative z-10 flex w-full max-w-xl flex-col overflow-hidden rounded-lg border border-white/10 bg-surface"
+    class="palette-panel relative z-10 flex w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl shadow-black/10"
   >
     <h2 id="palette-title" class="sr-only">Search or jump to</h2>
 
-    <div class="flex items-center gap-3 border-b border-white/10 px-4 py-3">
-      <span class="text-brand" aria-hidden="true">➜</span>
+    <div class="flex items-center gap-3 border-b border-line px-4 py-3.5">
+      <svg
+        class="size-4 shrink-0 text-muted"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="11" cy="11" r="7"></circle>
+        <path d="m20 20-3.5-3.5"></path>
+      </svg>
       <label for="palette-input" class="sr-only">Search or jump to</label>
       <input
         id="palette-input"
@@ -85,14 +97,14 @@ const projects = (await getProjects()).map((project) => ({
         autocomplete="off"
         autocorrect="off"
         spellcheck="false"
-        class="min-w-0 flex-1 bg-transparent text-sm text-ink outline-offset-2 placeholder:text-muted focus-visible:outline-0"
+        class="min-w-0 flex-1 bg-transparent text-[15px] text-ink outline-offset-2 placeholder:text-muted focus-visible:outline-0"
       />
     </div>
 
     <div id="palette-list" class="min-h-0 flex-1 overflow-y-auto p-2" role="listbox">
       <p
         data-palette-group="nav"
-        class="px-3 pt-2 pb-1 text-[11px] tracking-wide text-muted uppercase"
+        class="px-3 pt-2 pb-1 font-mono text-[11px] tracking-wide text-muted uppercase"
       >
         Navigate
       </p>
@@ -109,7 +121,7 @@ const projects = (await getProjects()).map((project) => ({
             class="palette-item"
             tabindex="-1"
           >
-            <span class="min-w-0 truncate text-ink">{item.command}</span>
+            <span class="min-w-0 truncate font-mono text-ink">{item.command}</span>
             <span class="hidden min-w-0 truncate text-xs text-muted sm:block">
               {item.description}
             </span>
@@ -122,7 +134,7 @@ const projects = (await getProjects()).map((project) => ({
           <>
             <p
               data-palette-group="projects"
-              class="px-3 pt-3 pb-1 text-[11px] tracking-wide text-muted uppercase"
+              class="px-3 pt-3 pb-1 font-mono text-[11px] tracking-wide text-muted uppercase"
             >
               Projects
             </p>
@@ -160,7 +172,7 @@ const projects = (await getProjects()).map((project) => ({
 
       <p
         data-palette-group="posts"
-        class="px-3 pt-3 pb-1 text-[11px] tracking-wide text-muted uppercase"
+        class="px-3 pt-3 pb-1 font-mono text-[11px] tracking-wide text-muted uppercase"
       >
         Posts
       </p>
@@ -208,8 +220,7 @@ const projects = (await getProjects()).map((project) => ({
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    border-left: 2px solid transparent;
-    border-radius: 0.375rem;
+    border-radius: 0.75rem;
     padding: 0.5rem 0.75rem;
     font-size: 0.875rem;
     color: var(--color-muted);
@@ -223,7 +234,6 @@ const projects = (await getProjects()).map((project) => ({
 
   .palette-item:hover,
   .palette-item.is-active {
-    border-left-color: var(--color-brand);
     background: var(--color-surface-2);
     color: var(--color-ink);
   }

@@ -32,11 +32,27 @@ const imageURL = new URL(image.src, Astro.site);
 
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
-<meta name="theme-color" content="#0b0d10" />
+<meta name="theme-color" content="#f7f8fb" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0b0d12" media="(prefers-color-scheme: dark)" />
+
+<script is:inline>
+  (() => {
+    let stored = null;
+    try {
+      stored = localStorage.getItem("theme");
+    } catch {}
+    const theme =
+      stored === "light" || stored === "dark"
+        ? stored
+        : matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
 <!-- <meta name="generator" content={Astro.generator} /> -->
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<!-- <link rel="icon" href="/favicon.ico" /> -->
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="sitemap" href="/sitemap-index.xml" />
@@ -47,7 +63,9 @@ const imageURL = new URL(image.src, Astro.site);
   href={new URL("rss.xml", Astro.site)}
 />
 
-<Font cssVariable="--font-jetbrains-mono" preload />
+<Font cssVariable="--font-geist" preload />
+<Font cssVariable="--font-geist-mono" />
+<Font cssVariable="--font-bricolage" preload />
 
 <link rel="canonical" href={canonicalURL} />
 

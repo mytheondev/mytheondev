@@ -5,7 +5,7 @@ import { SITE_EMAIL } from "../lib/site";
 <div class="flex flex-wrap items-center gap-3">
   <a
     href={`mailto:${SITE_EMAIL}`}
-    class="text-ink underline decoration-white/20 underline-offset-4 hover:text-brand hover:decoration-brand"
+    class="text-ink underline decoration-line-strong underline-offset-4 hover:text-brand hover:decoration-brand"
   >
     {SITE_EMAIL}
   </a>
@@ -13,7 +13,7 @@ import { SITE_EMAIL } from "../lib/site";
     type="button"
     id="copy-email"
     data-email={SITE_EMAIL}
-    class="rounded-md border border-white/10 px-3 py-1.5 text-xs text-ink transition-colors hover:border-brand"
+    class="rounded-full border border-line-strong px-3 py-1.5 text-xs text-ink transition-colors hover:border-brand"
   >
     Copy
   </button>

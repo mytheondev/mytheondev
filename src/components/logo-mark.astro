@@ -1,0 +1,56 @@
+---
+// Same mark as public/favicon.svg; keep the paths in sync. Colors come from
+// the --c-logo-* tokens in global.css so the mark follows the active theme.
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<svg class={className} viewBox="16 16 168 168" fill="none" aria-hidden="true">
+  <path
+    d="M140.497 70.5066V129.579C140.497 129.579 143.522 143.278 156.253 143.278C168.984 143.278 172.01 129.579 172.01 129.579V70.5066C172.01 70.5066 168.984 56.8069 156.253 56.8069C143.522 56.8069 140.497 70.5066 140.497 70.5066Z"
+    fill="url(#logo-pill)"></path>
+  <path
+    d="M146.358 59.6067L86.9701 117.688C86.9701 117.688 79.0822 129.633 87.9838 138.735C96.8854 147.837 109.004 140.217 109.004 140.217L168.392 82.1362C168.392 82.1362 175.923 70.1864 167.198 61.2647C158.472 52.3431 146.358 59.6067 146.358 59.6067Z"
+    fill="url(#logo-slash-right)"></path>
+  <path
+    d="M90.3908 59.6067L31.003 117.688C31.003 117.688 23.1152 129.633 32.0168 138.735C40.9184 147.837 53.0367 140.217 53.0367 140.217L112.424 82.1362C112.424 82.1362 119.956 70.1864 111.23 61.2647C102.505 52.3431 90.3908 59.6067 90.3908 59.6067Z"
+    fill="url(#logo-slash-left)"></path>
+  <defs>
+    <linearGradient
+      id="logo-pill"
+      x1="156.253"
+      y1="56.8069"
+      x2="156.253"
+      y2="143.278"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop style="stop-color: var(--c-logo-pill-a)"></stop>
+      <stop offset="1" style="stop-color: var(--c-logo-pill-b)"></stop>
+    </linearGradient>
+    <linearGradient
+      id="logo-slash-right"
+      x1="116.574"
+      y1="88.7353"
+      x2="138.608"
+      y2="111.265"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop style="stop-color: var(--c-logo-slash-a)"></stop>
+      <stop offset="1" style="stop-color: var(--c-logo-slash-b)"></stop>
+    </linearGradient>
+    <linearGradient
+      id="logo-slash-left"
+      x1="60.6068"
+      y1="88.7353"
+      x2="82.6405"
+      y2="111.265"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop style="stop-color: var(--c-logo-slash-a)"></stop>
+      <stop offset="1" style="stop-color: var(--c-logo-slash-b)"></stop>
+    </linearGradient>
+  </defs>
+</svg>

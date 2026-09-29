@@ -5,24 +5,29 @@ interface Props {
   dates: string;
   description: string;
   stack: string[];
+  current?: boolean;
 }
 
-const { role, company, dates, description, stack } = Astro.props;
+const { role, company, dates, description, stack, current = false } = Astro.props;
 ---
 
-<article class="card-hover rounded-lg border border-white/10 p-5 md:p-6">
-  <div class="flex flex-col gap-1 md:flex-row md:items-baseline md:justify-between">
-    <h3 class="font-semibold text-ink">
-      {role} — {company}
+<article
+  class="grid gap-2 border-t border-line py-5 first:border-t-0 first:pt-0 last:pb-0 md:grid-cols-[9rem_minmax(0,1fr)] md:gap-6"
+>
+  <p class:list={["pt-0.5 font-mono text-[13px]", current ? "text-brand" : "text-muted"]}>
+    {dates}
+  </p>
+  <div class="flex flex-col gap-2">
+    <h3 class="text-base font-semibold text-ink">
+      {role} <span class="font-normal text-muted">· {company}</span>
     </h3>
-    <p class="text-sm text-brand">{dates}</p>
+    <p class="text-sm leading-relaxed text-muted">{description}</p>
+    <ul class="mt-1 flex flex-wrap gap-1.5">
+      {
+        stack.map((item) => (
+          <li class="rounded-full bg-surface-2 px-2.5 py-1 text-xs text-ink">{item}</li>
+        ))
+      }
+    </ul>
   </div>
-  <p class="mt-4 text-sm leading-relaxed text-muted">{description}</p>
-  <ul class="mt-4 flex flex-wrap gap-2">
-    {
-      stack.map((item) => (
-        <li class="rounded-md border border-white/10 px-2 py-1 text-xs text-ink">{item}</li>
-      ))
-    }
-  </ul>
 </article>
