@@ -2,7 +2,7 @@
 title: "Cuándo construir un monolito, y cuándo de verdad necesitas microservicios"
 description: "Los microservicios no son la evolución obligatoria de un monolito. Cómo elegir según dominio, equipo, escala y madurez operativa — y qué cuesta realmente cada opción."
 publishedAt: "2026-08-17T09:00:00Z"
-updatedAt: "2026-08-17T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [Architecture]
 prerequisites:
   - Arquitectura de aplicaciones web
@@ -107,10 +107,6 @@ flowchart TD
 
 Este diagrama es conceptual. **Una base de datos por servicio es una práctica frecuente para reducir el acoplamiento. No es una ley.** Lo que el estilo realmente requiere es que otros servicios no accedan a tus tablas. Si dos «servicios» comparten un esquema y despliegan en un schedule coordinado, has cortado un monolito en procesos sin comprar independencia.
 
-Las propiedades que importan: servicios independientes con una responsabilidad delimitada; comunicación por red (HTTP, gRPC o mensajes) en lugar de llamadas en proceso; despliegue y escalado independientes; aislamiento para que un crash de proceso no sea el crash de todos; propiedad de equipo lo bastante pequeña para que un equipo construya, testee y opere el servicio.
-
-La guía de arquitectura de Google Cloud hace el mismo punto sobre acoplamiento sin vender una topología: servicios independientes débilmente acoplados pueden liberarse independientemente, usar stacks distintas, y ser gestionados por equipos diferentes. GKE versus Cloud Run es una elección de runtime después de que el límite existe.
-
 ## Los problemas que intentan resolver
 
 Los microservicios son una respuesta a presión operativa y organizacional específica. No son una forma más limpia de escribir una app CRUD.
@@ -123,8 +119,6 @@ Los microservicios son una respuesta a presión operativa y organizacional espec
 
 ## Ventajas — y lo que cuesta cada una
 
-Fowler agrupa los beneficios como límites de módulo más fuertes, despliegue independiente, y diversidad tecnológica — y los costes como distribución, eventual consistency, y complejidad operativa.
-
 | Ventaja                       | Resuelve                                  | Útil cuando                                        | Pagas                                                                            |
 | ----------------------------- | ----------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Despliegue independiente      | Releases sincronizados                    | Partes cambian en relojes distintos                | Contratos versionados, ventanas de compatibilidad, muchos pipelines              |
@@ -134,11 +128,7 @@ Fowler agrupa los beneficios como límites de módulo más fuertes, despliegue i
 | Límites de dominio más claros | «Quién es dueño de esta tabla»            | Los bounded contexts ya son visibles               | Un límite equivocado es caro de mover a través de una red                        |
 | Diversidad tecnológica        | Una necesidad medida de runtime/datastore | La restricción es real, no «queríamos Rust»        | Contratación, librerías compartidas, baselines de seguridad, on-call multilingüe |
 
-A pequeña escala un monolito es más barato y más simple de desplegar: un proceso, un pipeline, llamadas en proceso, consistencia de un solo commit. Los microservicios invierten eso: pagas la prima de distribuir desde el día uno, cada salto añade latencia, el debugging necesita trazas, y eventual consistency es el default. AWS Well-Architected REL03-BP01 dice lo mismo: segmentos más pequeños dan agilidad y te permiten invertir disponibilidad donde importa. También añaden latencia, debugging más difícil, y carga operativa.
-
 ## El precio de ir distribuido
-
-Los microservicios convierten problemas locales en problemas distribuidos. La prima de Fowler: despliegue automatizado, monitorización, manejo de fallos y eventual consistency son esfuerzo extra, y nadie tiene tiempo de sobra.
 
 Una llamada que solía ser `A → B` en proceso ahora puede fallar por un timeout, un paquete perdido, DNS, TLS, un load balancer, una instancia saturada, o porque el otro servicio simplemente no está ahí. Sigues teniendo bugs. También tienes una nueva clase de bugs que llevan el nombre de la red.
 
@@ -153,8 +143,6 @@ flowchart TD
 ```
 
 Esos identificadores te permiten reconstruir el camino. No son el mismo identificador. Un checkout puede mantener `TX-123` a través de un reintento que abre una segunda traza. Si tu equipo está a punto de dividir un proceso, lee [Un traceId no es un transactionId](/blog/trace-id-is-not-transaction-id/) antes de inventar un header casero. Azure lista logging centralizado, OpenTelemetry y tracing distribuido como parte de la arquitectura, no como pulido opcional.
-
-Sin trazas, el debugging es hacer grep por timestamp y esperar que los relojes coincidan. La lección temprana de Netflix en AWS fue el mismo fenómeno a nivel de red: APIs verbosas que estaban bien en un datacenter rápido se convirtieron en un defecto de diseño cuando la latencia varió.
 
 Una compra ya no es una transacción:
 
@@ -193,27 +181,11 @@ Pago tiene éxito. Inventario falla. Ahora tienes dinero y no stock, o reintenta
 
 ## Dos casos documentados
 
-### Netflix — un monolito que tuvo que convertirse en sistema distribuido
+**Netflix — un monolito que tuvo que convertirse en sistema distribuido.** La migración a la nube empezó en 2008; el streaming corría en AWS en 2010, y billing, un sistema sujeto a SOX y atado a Oracle en su datacenter, terminó la mudanza el 4 de enero de 2016. El motor fue la escala, la expansión global y un entorno donde las instancias fallan como algo normal, no una preferencia por microservicios. Su «Rambo Architecture» exigía que cada sistema pudiera funcionar por su cuenta: si las recomendaciones caen, el sitio muestra títulos populares; Chaos Monkey mata instancias para que el manejo de fallos se ejercite antes de una caída real. También pagaron la factura distribuida desde el primer día: APIs conversadoras que el datacenter toleraba tuvieron que rediseñarse para la latencia de AWS, y construyeron Eureka y Ribbon porque las herramientas cloud-native todavía no existían. Copia el problema, no el logo: a la escala de Netflix, el sobrecosto de los microservicios era la factura más barata.
 
-La migración a la nube de Netflix empezó en 2008. Para 2010, streaming corría en AWS. Facturación, un sistema financiero sujeto a SOX todavía atado a una gran infraestructura Oracle en su datacenter, se volvió completamente nativa en AWS el 4 de enero de 2016, después de un movimiento incremental de varios años.
+**Shopify — un monolito que siguió siendo monolito a propósito.** Uno de los codebases de Rails más grandes que existen (más de 2,8 millones de líneas en 2020, más de mil desarrolladores) no tenía límites internos reales en 2016: los cambios en shipping rompían tests no relacionados, y un ingeniero nuevo en shipping también tenía que aprender orders y payments. En vez de microservicios, Shopify construyó un **monolito modular**: Componentization reorganizó unas 6.000 clases por dominio, y Packwerk rechaza los pull requests que rompen el grafo de dependencias. El beneficio que reportaron fue una ownership más clara y poder reemplazar un motor de impuestos legacy, un cambio que antes consideraban casi imposible. Su problema era la modularidad, no la necesidad de runtimes independientes.
 
-El problema inicial no era «preferimos microservicios». Era escala, expansión global, y un entorno de computación donde instancias individuales fallan como evento normal. John Ciancutti, escribiendo un año después de la transición a AWS, llamó al diseño resultante su «Arquitectura Rambo»: cada sistema tiene que poder tener éxito por su cuenta. Si recomendaciones está caído, el sitio todavía responde — con títulos populares en lugar de personalizados. Si búsqueda está intolerablemente lenta, streaming sigue funcionando. Chaos Monkey existía para matar instancias a propósito, porque el manejo de fallos que no se usa no funciona en un outage real.
-
-También pagaron el coste de distribuir inmediatamente. Las redes de datacenter habían tolerado APIs verbosas; la latencia de AWS no, así que las interacciones «over the wire» tenían que diseñarse. Construyeron Eureka (discovery) y Ribbon (load balancing del lado del cliente) porque, en 2010, la caja de herramientas cloud-native no existía. Un post posterior del Tech Blog es honesto sobre el siguiente coste: más clientes IPC, más lenguajes, más features de resiliencia — que es por qué después movieron esa lógica hacia un service mesh.
-
-Lo que obtuvieron: dominios de fallo independientes, escala horizontal para facturación después de separarse de Oracle (Cassandra para datos de suscriptores, MySQL donde todavía necesitaban ACID para cargos), y flujos de cara al cliente que se mantuvieron arriba mientras una dependencia se degradaba. Lo que asumieron: complejidad operativa, resiliencia activa, y una migración larga — país por país, con proxies de vuelta al datacenter, y testing end-to-end poco automatizado que subestimaron.
-
-Copia el problema, no el logo. Netflix ya estaba en una escala donde la prima de microservicios era la factura más barata.
-
-### Shopify — un monolito que siguió siendo monolito a propósito
-
-- Una de las bases de código Ruby on Rails más grandes que existen: más de 2.8 millones de líneas para 2020, desarrollo continuo desde al menos 2006, más de mil desarrolladores para 2019 — sigue siendo una sola unidad desplegable.
-- En 2016 el monolito original no tenía límites reales. Cambios inocuos de envíos se propagaban en fallos de tests no relacionados; un ingeniero nuevo en envíos también tenía que aprender pedidos y pagos.
-- Los microservicios eran la respuesta de moda. Shopify eligió un **monolito modular**: Componentización (~6,000 clases Ruby reorganizadas por dominio), después Packwerk para rechazar pull requests que rompan el grafo de dependencias. Para 2020 tenían 37 componentes en el monolito principal.
-- El beneficio que reportaron no fue «evitamos microservicios». Las dependencias aisladas hicieron posible cambiar un motor de impuestos legacy — un cambio que describieron como casi imposible antes — más propiedad más clara y triaje de excepciones por componente.
-- Todavía corren un monolito grande porque el problema que tenían era modularidad, no una necesidad de runtimes independientes. Esa es la frase que la mayoría de las charlas de conferencia se saltan.
-
-Werner Vogels, escribiendo después de que Prime Video documentara una herramienta de monitorización de stream como monolito, repitió que no hay un estilo mandatorio. Si los componentes siempre contribuyen a la misma respuesta, comparten necesidades de escalado y seguridad, y son propiedad de un equipo, combinarlos puede simplificar la arquitectura. Amazon mismo pasó de un monolito hacia servicios después del Distributed Computing Manifesto de 1998 — y S3 creció de unos pocos microservicios en su lanzamiento en 2006 a más de 300. Ambas direcciones están documentadas. Ninguna es una religión.
+Werner Vogels, escribiendo después de que Prime Video documentara una herramienta de monitoreo construida como monolito, repitió que no hay un estilo obligatorio: componentes que siempre contribuyen a la misma respuesta, comparten necesidades de escala y pertenecen a un solo equipo pueden ser más simples juntos. Amazon mismo pasó de un monolito a servicios, y S3 creció de unos pocos microservicios a más de 300. Ambas direcciones están documentadas. Ninguna es una religión.
 
 ## Un camino de e-commerce de una unidad desplegable a un híbrido
 
@@ -237,9 +209,7 @@ Ahora tienes un híbrido. Eso no es una migración incompleta. Es una arquitectu
 
 La estrategia de Fowler, en una línea: **empieza con un monolito modular y extrae servicios cuando hay una necesidad demostrada.** Casi toda historia exitosa de microservicios que había oído empezó como un monolito que se hizo demasiado grande; casi todo sistema construido como microservicios desde cero acabó en problemas serios. Los microservicios solo funcionan con límites estables. Refactorizar un paquete es barato. Refactorizar un límite de servicio es una migración. Eso es YAGNI aplicado a límites de proceso — una vez.
 
-Lo que el monolito necesita si quieres la opción de evolucionar: dominios como eje primario; bounded contexts aunque compartan proceso; hexagonal / Clean Architecture para que un módulo pueda convertirse después en proceso; inversión de dependencias; límites de módulo que se imponen. Shopify necesitó Packwerk porque la convención no era suficiente.
-
-La cobertura de Fowler: no empieces con microservicios a menos que el equipo ya tenga experiencia operándolos. Las arquitecturas pueden cambiar — Vogels revisa el diseño con cada orden de magnitud de crecimiento. El patrón de migración con nombre es el **Strangler Fig**: añade costuras, construye el nuevo comportamiento junto al viejo, redirige una porción del tráfico, repite. AWS lo recomienda, incluyendo arquitectura de transición que después borrarás. Una reescritura big-bang es la última opción.
+Para conservar la opción de evolucionar, el monolito necesita dominios como eje principal, bounded contexts aunque compartan proceso, inversión de dependencias para que un módulo pueda convertirse después en proceso, y límites que se imponen: Shopify necesitó Packwerk porque la convención no bastaba. No empieces con microservicios si el equipo todavía no los opera. Cuando una extracción está justificada, usa el **Strangler Fig**: añade costuras, construye el comportamiento nuevo junto al viejo, redirige una porción del tráfico, repite. AWS lo recomienda; una reescritura big-bang es la última opción.
 
 ## Razones equivocadas, señales reales
 
@@ -254,12 +224,6 @@ Estas no son razones suficientes para dividir un proceso:
 - **«El monolito es feo.»** La fealdad es un problema de modularidad. La distribución no quita lo feo. Lo replica.
 
 Fowler llamó a la ansiedad _Microservice Envy_. La mayoría de sistemas, según su guía, deberían ser una sola aplicación con modularidad real.
-
-Una arquitectura distribuida está sobre la mesa cuando varias de estas son ciertas: escala independiente demostrada; equipos independientes que ya despliegan en relojes distintos; bounded contexts estables; una razón concreta de release-train; disponibilidad que difiere por capacidad; un fallo que actualmente tumba algo más importante; volumen concentrado en un componente; una tecnología diferente requerida, no deseada; una org que puede operar un sistema distribuido un jueves malo; observabilidad lo bastante buena para seguir una petición hoy; CI/CD que ya puede desplegar un artefacto de forma segura.
-
-Una casilla marcada es un olor, no un mandato. Tres casillas marcadas y una historia de observabilidad que falta es una razón para parar.
-
-Sistemas pequeños, MVPs, equipos pequeños: monolito modular. Sistemas grandes con equipos independientes, escala desigual, o disponibilidad distinta: considera servicios, un límite a la vez. Organizaciones sin madurez DevOps y de observabilidad: no importes un modelo operativo distribuido para evitar una conversación de diseño.
 
 > La mejor arquitectura no es la que tiene más servicios. Es la que resuelve el problema con la menor complejidad necesaria.
 

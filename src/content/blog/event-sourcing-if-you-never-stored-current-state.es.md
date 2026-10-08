@@ -2,7 +2,7 @@
 title: "Event Sourcing: ¿y si tu aplicación nunca guardara el estado actual?"
 description: "Guardar solo el saldo responde dónde estás, no cómo llegaste. Qué es Event Sourcing, cómo se reconstruye el estado, y cuándo es una mala decisión frente a CRUD."
 publishedAt: "2026-09-01T09:00:00Z"
-updatedAt: "2026-09-01T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [Architecture, DDD, TypeScript]
 prerequisites:
   - TypeScript
@@ -21,7 +21,7 @@ El modelo CRUD responde dónde estás. Una fila, una columna, un valor. No respo
 
 Eso no es un bug de SQL. Es una decisión de persistencia. La mayoría de las aplicaciones guardan el estado actual y tratan el pasado como un extra opcional. Event Sourcing invierte esa decisión: los eventos son la fuente de verdad; el saldo es una proyección que se puede volver a calcular.
 
-No es un upgrade de CRUD. No es «usar Kafka». No es CQRS con otro nombre. Es un patrón caro, útil en un subconjunto estrecho de dominios, y una mala arquitectura en el resto. Microsoft lo dice sin adorno: para la mayoría de los sistemas, la gestión tradicional de datos alcanza. Adoptarlo cambia cómo almacenas, cómo manejas concurrencia, cómo evolucionas schemas y cómo consultas estado. Migrar hacia o desde es costoso.
+No es un upgrade de CRUD, no es «usar Kafka» y no es CQRS con otro nombre. Es un patrón caro que encaja en un subconjunto estrecho de dominios. Microsoft lo dice sin adorno: para la mayoría de los sistemas, la gestión tradicional de datos alcanza, y migrar hacia o desde Event Sourcing es costoso.
 
 La pregunta útil no es «qué es Event Sourcing». Es esta:
 
@@ -65,8 +65,6 @@ ES:       Eventos --> fuente de verdad
           Estado  --> proyección derivada
 ```
 
-Fowler aclara un malentendido frecuente: no todo el mundo tiene que leer el event log. Un editor de texto no entiende los commits de git; asume que hay un archivo en disco. Gran parte del procesamiento puede trabajar sobre una «working copy» — un saldo, una vista, un documento — mientras solo las partes que de verdad necesitan el historial tocan el stream. El log sigue siendo el system of record. El archivo en disco no.
-
 ## CRUD tradicional vs Event Sourcing
 
 En CRUD, una cuenta es el estado actual:
@@ -94,8 +92,6 @@ MoneyDeposited
 Conservas el historial completo. El saldo es computable. Lo que no conservas, de forma gratuita, es una consulta SQL barata del tipo `SELECT balance FROM accounts`. Esa consulta exige una proyección, un snapshot, o un replay.
 
 CRUD no es el modelo pobre. Es el modelo correcto cuando el negocio pregunta por el documento actual: un perfil, un post, una flag de configuración. Event Sourcing no es el modelo sofisticado. Es el modelo correcto cuando el negocio pregunta por el ledger: qué pasó, en qué orden, y cómo reconstruir el mundo en un punto.
-
-Resuelven problemas distintos. Presentar Event Sourcing como «mejor que CRUD» es el mismo error que presentar microservicios como la forma adulta del monolito.
 
 ## Event Store, streams y replay
 
@@ -156,40 +152,9 @@ flowchart TD
 
 El saldo de la UI no tiene que salir de un `reduce` en cada GET. Una proyección puede mantener `account-123 → 1400` en una tabla lista para leer. El historial de movimientos puede ser otra tabla. Un agregado analítico — depósitos por día, retiros por canal — otra. Ninguna de esas tablas es la fuente de verdad. Si una se equivoca, se borra y se vuelve a proyectar desde el store.
 
-Esto todavía no es CQRS. Es la observación de Fowler de que, en un sistema event-sourced, puedes tener varias working copies con distinto schema. La proyección es esa working copy, mantenida con eager derivation: se actualiza cuando llega el evento, para que la lectura no recorra el log.
+## Event Sourcing no es CQRS, ni Event-Driven Architecture
 
-## Event Sourcing no es CQRS
-
-Command Query Responsibility Segregation separa el modelo con el que escribes del modelo con el que lees. Greg Young lo describió; Fowler lo resume: para algunos dominios esa separación vale la pena; para la mayoría, CQRS añade complejidad arriesgada. Fowler es directo: **CQRS no va realmente de eventos**. Puedes usarlo sin ningún evento en el diseño.
-
-Event Sourcing no va de separar lecturas y escrituras. Va de persistir cambios como hechos y derivar estado.
-
-Pueden combinarse, y a menudo se combinan:
-
-```mermaid
-flowchart TD
-  command[Command] --> domain[Domain Model]
-  domain --> eventStore[Event Store]
-  eventStore --> projectionA[Projection A]
-  eventStore --> projectionB[Projection B]
-  projectionA --> readA[Read Model]
-  projectionB --> readB[Read Model]
-```
-
-El **command** expresa una intención (`WithdrawMoney`). El **domain model** (el aggregate) rehidrata, aplica reglas, emite eventos. El **Event Store** agrega. Las **projections** construyen read models. Microsoft describe esa combinación: el Event Store es el write model y la única fuente de verdad; el read model materializa vistas desnormalizadas.
-
-Uno no implica al otro.
-
-- Event Sourcing sin CQRS físico: replayas el stream cuando necesitas el agregado, y tal vez una sola proyección de saldo. Sigue siendo Event Sourcing.
-- CQRS sin Event Sourcing: dos modelos, quizá dos bases, con el write model guardando estado actual. Fowler lo admite explícitamente. Microsoft también: CQRS puede compartir un solo data store y solo separar la lógica.
-
-En NestJS, el módulo [`@nestjs/cqrs`](https://docs.nestjs.com/recipes/cqrs) te da commands, queries y un bus en proceso. Eso no convierte la persistencia en un Event Store. Un `CommandHandler` puede cargar un stream, aplicar el agregado y agregar eventos. También puede hacer `UPDATE accounts SET balance = …`. El módulo no decide el patrón.
-
-## Event Sourcing no es Event-Driven Architecture
-
-Fowler dedicó un artículo entero a desarmar «event-driven», porque la palabra cubre patrones distintos. Event Notification avisa a otros sistemas de que algo cambió. Event-Carried State Transfer manda datos suficientes para que el receptor no tenga que preguntar. Event Sourcing registra cada cambio como evento _para poder reconstruir estado_. CQRS separa modelos. Ninguno es los demás.
-
-Una tabla corta evita el colapso más común:
+Tres patrones terminan colapsados en una palabra. **CQRS** separa el modelo con el que escribes del modelo con el que lees; Fowler es directo: no trata realmente de eventos, y puedes usarlo sin ninguno. **Event-Driven Architecture** son componentes que reaccionan a eventos, normalmente para desacoplar: event notification o event-carried state transfer. **Event Sourcing** registra cada cambio como evento _para poder reconstruir estado_.
 
 | Concepto                  | Qué es                                                             | Qué no es                                     |
 | ------------------------- | ------------------------------------------------------------------ | --------------------------------------------- |
@@ -200,9 +165,9 @@ Una tabla corta evita el colapso más común:
 | Event Store               | Append-only, streams por entidad, replay, optimistic concurrency.  | Un topic.                                     |
 | CQRS                      | Modelos distintos para command y query.                            | Event Sourcing.                               |
 
-Usar Kafka, RabbitMQ o [Pub/Sub](/blog/google-cloud-pubsub-how-to-use-it-correctly/) no significa que la aplicación use Event Sourcing. Significa que hay un canal. Si el system of record sigue siendo `UPDATE accounts SET balance`, tienes mensajería sobre CRUD. Fowler nota el error simétrico: un project manager que culpó a Event Sourcing de tener que actualizar read y write models estaba describiendo CQRS; el tech lead culpó al asincronismo, que no es necesario ni en Event Sourcing ni en CQRS. Git commit es síncrono. El patrón no exige una cola.
+Se combinan bien, y a menudo: un command llega al aggregate, el aggregate añade eventos al store, las projections construyen read models y un broker distribuye los eventos ya persistidos a otros contextos. Microsoft describe esa combinación con el Event Store como write model y única fuente de verdad. Ninguna pieza implica a las demás. Event Sourcing sin CQRS reproduce el stream cuando necesita el aggregate. CQRS sin Event Sourcing guarda el estado actual en el write model. Kafka o [Pub/Sub](/blog/google-cloud-pubsub-how-to-use-it-correctly/) encima de `UPDATE accounts SET balance` es CRUD con un canal. Ninguno de los dos patrones exige siquiera asincronía: un git commit es síncrono.
 
-El broker puede fan-out eventos _después_ de persistirlos en el store, para projections e integración. Esa rama es Event-Driven Architecture alrededor de Event Sourcing. No es el patrón.
+En NestJS, [`@nestjs/cqrs`](https://docs.nestjs.com/recipes/cqrs) te da commands, queries y un bus en proceso. Un `CommandHandler` puede añadir a un stream o ejecutar un `UPDATE`; el módulo no elige el patrón.
 
 ## Una cuenta, un ledger, un error
 
@@ -242,23 +207,9 @@ El saldo vuelve a S/ 1,400. El auditor ve el depósito y la reversión. Eso es e
 
 ## Idempotencia
 
-La entrega a consumidores suele ser at-least-once. Microsoft lo trata como requisito del patrón, no como detalle de infraestructura: el mismo evento puede llegar dos veces. Sin consumidores idempotentes, las projections se desvían del stream y los side effects — un pago, un email, un asiento descontado — se aplican de más.
+La entrega a projections y consumidores suele ser at-least-once, y Microsoft lo trata como un requisito del patrón. Si `MoneyDeposited { eventId: "evt-123", amount: 1000 }` llega dos veces, la projection debe acreditar +1000 una sola vez. Guarda el último número de secuencia procesado por consumidor, o trata `eventId` como idempotency key al aplicar el side effect. Los updates absolutos (fijar el saldo a un valor) se repiten sin riesgo; los eventos de diferencia (sumar 1000) necesitan la key.
 
-```text
-MoneyDeposited
-eventId: evt-123
-amount: 1000
-```
-
-El consumidor recibe `evt-123`, luego `evt-123`. Debe acreditar **+1000**, no +1000 dos veces.
-
-Estrategias conceptuales, no un segundo artículo:
-
-- Recordar el último número de secuencia procesado por consumidor y saltar duplicados.
-- Tratar `eventId` como clave de idempotencia al aplicar el side effect.
-- Diseñar la mutación para que repetirla no cambie el resultado (poner saldo a un valor absoluto es más fácil de repetir que sumar; los eventos de diferencia, que son los más útiles para reverse, exigen la key).
-
-La misma incertidumbre de red que hace inseguro reintentar un `POST /payments` aparece aquí como reentrega. El diseño de APIs con `Idempotency-Key` está en [idempotencia en APIs](/blog/idempotency-in-apis/). En mensajería, Pub/Sub no promete exactly-once; el consumidor tiene que recordar el `eventId`. Event Sourcing no te ahorra ese trabajo. Te lo pone en cada projection.
+Es la misma incertidumbre que hace inseguro reintentar `POST /payments` — [idempotencia en APIs](/blog/idempotency-in-apis/) cubre el lado HTTP. Event Sourcing no elimina ese trabajo. Lo pone en cada projection.
 
 ## Consistencia, complejidad y versionado
 
@@ -302,27 +253,18 @@ Los eventos viejos no se reescriben. El código nuevo tiene que leerlos. Microso
 - **Upcasting:** funciones que transforman el schema viejo al actual en la deserialización. El dominio solo ve la versión vigente. Los eventos almacenados no cambian.
 - **In-place migration:** reescribir el store. Rompe inmutabilidad. Último recurso, porque pudre el audit trail.
 
-Greg Young documenta el mismo problema en _Versioning in an Event Sourced System_: versionar hacia adelante es lo que los equipos descubren rápido; qué hacer con un bug ya persistido es el costo extra frente a CRUD. Un upcaster no es un detalle de framework. Es una responsabilidad que nace el día que el primer evento entra al store y el schema todavía va a cambiar.
-
-Evolución de eventos, replay, snapshots, orden, concurrencia, projections asíncronas: esa es la complejidad. No desapareció. Dejó de vivir en el `UPDATE` y pasó a vivir en el tiempo.
-
 ## Cuándo utilizar Event Sourcing
 
-Microsoft, Fowler y AWS coinciden más en el _por qué_ que en un checklist de industrias.
+Microsoft, Fowler y AWS coinciden más en el _porqué_ que en un checklist. Encaja cuando:
 
-**Auditoría y trazabilidad como requisito de dominio.** No «un log por si acaso». El negocio tiene que poder explicar cada cambio con hechos que el sistema no puede reescribir. Fowler nota que un audit trail completo también ayuda a soporte: reconstruir lo que hizo un usuario. Eso se puede hacer con logging. Event Sourcing lo convierte en el modelo, no en un extra.
+- **la auditoría es un requisito del dominio** — el negocio tiene que explicar cada cambio con hechos que el sistema no puede reescribir, no «un log por si acaso»;
+- **el historial es el dominio** — un ledger, un pipeline de pedidos, reservas con conflicto donde lo que pasó importa tanto como el valor actual;
+- **necesitas reconstruir estados pasados o de prueba** — temporal queries, recuperación point-in-time, reproducir un incidente con los mismos eventos;
+- **varios read models salen de un mismo historial** — saldo, estado de cuenta, analítica, integración;
+- **los workflows se compensan** — un paso se revierte con un hecho nuevo, no se borra;
+- **importa la intención** — _Se mudó_ o _Cerró la cuenta_ en vez de un `status` que pisa el anterior.
 
-**El historial es el dominio.** Una cuenta, un ledger, un pipeline de órdenes donde _qué ocurrió_ es tan importante como _cómo está_. Fowler ve sinergia con contabilidad precisamente por eso. Un sistema de reservas de asientos, el ejemplo de Microsoft, encaja cuando el conflicto de escritura y el historial de bookings importan más que una fila `seatsRemaining`.
-
-**Reconstruir estado histórico o de prueba.** Temporal queries, rebuild completo, reproducir un incidente con los mismos eventos. AWS lista point-in-time recovery y proyectar el mismo origen a formatos distintos.
-
-**Varios modelos de lectura desde un solo historial.** Balance, extracto, analítica, integración. Si esas vistas van a nacer y morir, replayar el store es más barato que haber perdido los hechos en un `UPDATE`.
-
-**Workflows con compensación.** Varios pasos, necesidad de revertir sin fingir que el paso no existió. El compensating event es el modelo; un delete no lo es.
-
-**Intent, not just state.** Microsoft: capturar _Moved home_, _Closed account_, _Deceased_ en vez de un `status` que pisa el anterior. El porqué cabe en el tipo de evento.
-
-Aplícalo **selectivamente**. Microsoft lo dice: ledger de pagos u order pipeline, sí; perfil de usuario o configuración, no. Fowler dice lo mismo de CQRS: un Bounded Context, no el sistema entero.
+Aplícalo **de forma selectiva**. Los ejemplos de Microsoft: un ledger de pagos o un pipeline de pedidos, sí; un perfil de usuario o la configuración de la aplicación, no. Un Bounded Context, no todo el sistema.
 
 ## Cuándo no utilizarlo
 
@@ -390,65 +332,16 @@ const account = events.reduce(applyEvent, initialState);
 
 No hay I/O. No hay NestJS. En un servicio Nest, este `reduce` vive dentro del aggregate. El `CommandHandler` carga el stream, llama `applyEvent`, decide, appendea. El módulo CQRS del framework no aparece en este código porque no hace falta para entender el patrón.
 
-## Qué es necesario y qué es opcional
-
-Una arquitectura «completa» mezcla Event Sourcing con otros patrones. Conviene marcar la frontera.
-
-```mermaid
-flowchart TD
-  client[Client] --> command[Command]
-  command --> aggregate["Domain / Aggregate"]
-  aggregate --> eventStore[Event Store]
-  eventStore --> projectionA[Projection]
-  eventStore --> projectionB[Projection]
-  eventStore --> integration[Integration]
-  projectionA --> readDbA[Read DB]
-  projectionB --> readDbB[Read DB]
-  integration --> eventBus[Event Bus]
-```
-
-**Necesario para Event Sourcing**
-
-- Eventos de dominio que capturan cada cambio.
-- Un Event Store append-only, con streams por entidad y orden.
-- Una función de aplicación (`applyEvent`) y la capacidad de rehydration / replay.
-- Una política para no mutar el historial (compensating events).
-
-**Frecuente, no constitutivo**
-
-- Snapshots, cuando el stream crece.
-- Una o más projections, cuando no quieres replayar en cada lectura.
-- Optimistic concurrency en el append.
-
-**De otros patrones**
-
-- Commands y queries separados, read DBs distintas: CQRS.
-- Event Bus hacia otros bounded contexts: Event-Driven Architecture / integración.
-- `@nestjs/cqrs`, Kafka, Pub/Sub: herramientas. Ninguna convierte CRUD en Event Sourcing.
-
-Puedes tener Event Sourcing en un monolito, síncrono, con una sola proyección de saldo en memoria. Fowler describe clusters in-memory alimentados por un stream, y también el caso mínimo: calcular estado aplicando eventos sobre un estado vacío. El diagrama de arriba es el techo habitual, no el requisito de entrada.
-
 ## Errores comunes al adoptar Event Sourcing
 
-1. **Confundir Event Sourcing con logs.** Un audit log al lado de CRUD no es Event Sourcing. Fowler: la clave es que **todos** los cambios del dominio los inician los eventos, y esos eventos viven tanto como el estado. Si puedes cambiar el saldo sin pasar por el log, el log no es la fuente de verdad.
-
-2. **Pensar que Event Sourcing significa usar Kafka.** Kafka distribuye. El Event Store persiste streams por entidad y rechaza appends concurrentes mal versionados. Microsoft: el broker no es sustituto.
-
-3. **Creer que Event Sourcing requiere CQRS.** Se combinan bien. No se implican. Fowler: CQRS ni siquiera va de eventos.
-
-4. **Modificar eventos históricos.** Un `UPDATE` sobre el stream destruye el audit trail. La corrección es un evento nuevo. Reescribir el store es el último recurso de versionado, no el primero.
-
-5. **Ignorar idempotencia.** At-least-once más un `+amount` duplica dinero. Las projections y los side effects tienen que reconocer `eventId` o secuencia.
-
-6. **No pensar en versionado.** El primer evento que guardas va a envejecer. Sin tolerant readers, versiones o upcasters, el replay se rompe el día que el schema cambia.
-
-7. **Usarlo para cualquier CRUD.** Perfiles, posts, config, catálogos simples. El historial no tiene valor de negocio; el patrón sí tiene costo.
-
-8. **No considerar snapshots.** Replay de millones de eventos por comando no es un detalle de «más adelante». Es un límite del modelo, y el snapshot es la mitigación — sin convertirlo en fuente de verdad.
-
-9. **No definir correctamente los eventos de dominio.** `BalanceUpdated { value: 42 }` no captura intención. `SeatsReserved { count: 2 }` sí. Eventos CRUD-shaped (`UserUpdated`) convierten el store en un change log caro.
-
-10. **Introducirlo sin una necesidad real del negocio.** Sin auditoría inmutable, sin reconstrucción histórica, sin varios read models que justifiquen el log, estás comprando complejidad por estética. Microsoft: una vez que una parte del sistema es event-sourced, las decisiones futuras quedan acotadas por ese hecho.
+- **Un audit log al lado de CRUD.** Si el saldo puede cambiar sin pasar por el log, el log no es la fuente de verdad.
+- **«Usamos Kafka, así que hacemos Event Sourcing».** Un broker distribuye. El Event Store persiste streams por entidad y rechaza appends concurrentes en la misma versión.
+- **Suponer que exige CQRS, o al revés.** Se combinan; ninguno implica al otro.
+- **Editar eventos almacenados.** La corrección es un compensating event. Reescribir el store es el último recurso de versionado, no el primero.
+- **Ignorar idempotencia o versionado.** Un `+amount` duplicado duplica dinero; el primer evento que guardes va a envejecer.
+- **Reproducir millones de eventos por command.** Los snapshots son la mitigación, nunca la fuente de verdad.
+- **Eventos con forma de CRUD.** `BalanceUpdated { value: 42 }` o `UserUpdated` convierten el store en un change log caro. `SeatsReserved { count: 2 }` captura la intención.
+- **Adoptarlo sin una necesidad de negocio.** Una vez que una parte del sistema usa Event Sourcing, las decisiones de diseño futuras en esa parte quedan condicionadas por ese hecho.
 
 ## Conclusión
 

@@ -2,7 +2,7 @@
 title: "When to build a monolith, and when you actually need microservices"
 description: "Microservices are not the required upgrade from a monolith. How to choose by domain, team, scale, and operational maturity — and what each choice actually costs."
 publishedAt: "2026-08-17T09:00:00Z"
-updatedAt: "2026-08-17T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [Architecture]
 prerequisites:
   - Web application architecture
@@ -107,10 +107,6 @@ flowchart TD
 
 This diagram is conceptual. **A database per service is a frequent practice for reducing coupling. It is not a law.** What the style actually requires is that other services do not reach into your tables. If two "services" share a schema and deploy on a coordinated schedule, you have cut a monolith into processes without buying independence.
 
-The properties that matter: independent services with a delimited responsibility; network communication (HTTP, gRPC, or messages) instead of in-process calls; independent deployment and scaling; isolation so a process crash is not everyone else's crash; team ownership small enough that one team can build, test, and run the service.
-
-Google Cloud's architecture guidance makes the same coupling point without selling a topology: loosely coupled independent services can be released independently, use different stacks, and be managed by different teams. GKE versus Cloud Run is a runtime choice after the boundary exists.
-
 ## The problems they try to solve
 
 Microservices are a response to specific operational and organizational pressure. They are not a cleaner way to write a CRUD app.
@@ -123,8 +119,6 @@ Microservices are a response to specific operational and organizational pressure
 
 ## Advantages — and what each one costs
 
-Fowler groups the benefits as stronger module boundaries, independent deployment, and technology diversity — and the costs as distribution, eventual consistency, and operational complexity.
-
 | Advantage                 | Solves                            | Useful when                                    | You pay                                                            |
 | ------------------------- | --------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------ |
 | Independent deployment    | Lockstep releases                 | Parts change on different clocks               | Versioned contracts, compatibility windows, many pipelines         |
@@ -134,11 +128,7 @@ Fowler groups the benefits as stronger module boundaries, independent deployment
 | Clearer domain boundaries | "Who owns this table"             | Bounded contexts are already visible           | A wrong boundary is expensive to move across a network             |
 | Technology diversity      | A measured runtime/datastore need | The constraint is real, not "we wanted Rust"   | Hiring, shared libraries, security baselines, multilingual on-call |
 
-At small scale a monolith is cheaper and simpler to ship: one process, one pipeline, in-process calls, single-commit consistency. Microservices invert that: you buy the distributed premium on day one, every hop adds latency, debugging needs traces, and eventual consistency is the default. AWS Well-Architected REL03-BP01 says the same thing: smaller segments give agility and let you invest availability where it matters. They also add latency, harder debugging, and operational burden.
-
 ## The price of going distributed
-
-Microservices turn local problems into distributed ones. Fowler's premium: automated deployment, monitoring, failure handling, and eventual consistency are extra effort, and nobody has spare acres of time.
 
 A call that used to be `A → B` in-process can now fail because of a timeout, a dropped packet, DNS, TLS, a load balancer, a saturated instance, or the other service simply not being there. You still have bugs. You also have a new class of bugs named after the network.
 
@@ -153,8 +143,6 @@ flowchart TD
 ```
 
 Those identifiers let you reconstruct the path. They are not the same identifier. A checkout can keep `TX-123` across a retry that opens a second trace. If your team is about to split a process, read [traceId is not transactionId](/blog/trace-id-is-not-transaction-id/) before you invent a house header. Azure lists centralized logging, OpenTelemetry, and distributed tracing as part of the architecture, not as optional polish.
-
-Without traces, debugging is grepping by timestamp and hoping clocks agree. Netflix's early AWS lesson was the same phenomenon at the network layer: chatty APIs that were fine in a fast datacenter became a design defect once latency varied.
 
 A purchase is no longer one transaction:
 
@@ -193,27 +181,11 @@ Payment succeeds. Inventory fails. You now have money and no stock, or you retry
 
 ## Two documented cases
 
-### Netflix — a monolith that had to become a distributed system
+**Netflix — a monolith that had to become a distributed system.** The cloud migration began in 2008; streaming ran on AWS by 2010, and billing, a SOX-sensitive system tied to Oracle in their datacenter, finished the move on 4 January 2016. The driver was scale, global expansion, and an environment where instances fail as a normal event, not a preference for microservices. Their "Rambo Architecture" required each system to succeed on its own: if recommendations are down, the site shows popular titles; Chaos Monkey kills instances so failure handling is exercised before a real outage. They also paid the distributed bill immediately: chatty APIs that a datacenter tolerated had to be redesigned for AWS latency, and they built Eureka and Ribbon because the cloud-native toolbox did not exist yet. Copy the problem, not the logo: at Netflix's scale the microservice premium was the cheaper bill.
 
-Netflix's cloud migration began in 2008. By 2010, streaming ran on AWS. Billing, a SOX-sensitive financial system still tied to a giant Oracle estate in their datacenter, became fully AWS-native on 4 January 2016, after a multi-year incremental move.
+**Shopify — a monolith that stayed a monolith on purpose.** One of the largest Rails codebases in existence (over 2.8 million lines by 2020, more than a thousand developers) had no real internal boundaries in 2016: shipping changes broke unrelated tests, and a new engineer on shipping also had to learn orders and payments. Instead of microservices, Shopify built a **modular monolith**: Componentization reorganized ~6,000 classes by domain, and Packwerk rejects pull requests that break the dependency graph. The payoff they reported was clearer ownership and the ability to swap a legacy tax engine, a change they had called nearly impossible. Their problem was modularity, not a need for independent runtimes.
 
-The starting problem was not "we prefer microservices." It was scale, global expansion, and a computing environment where individual instances fail as a normal event. John Ciancutti, writing a year into the AWS transition, called the resulting design their "Rambo Architecture": each system has to be able to succeed on its own. If recommendations are down, the site still responds — with popular titles instead of personalized ones. If search is intolerably slow, streaming still works. Chaos Monkey existed to kill instances on purpose, because unused failure handling does not work in a real outage.
-
-They also paid the distributed bill immediately. Datacenter networks had tolerated chatty APIs; AWS latency did not, so "over the wire" interactions had to be designed. They built Eureka (discovery) and Ribbon (client-side load balancing) because, in 2010, the cloud-native toolbox did not exist. A later Tech Blog post is honest about the next cost: more IPC clients, more languages, more resilience features — which is why they later moved that logic toward a service mesh.
-
-What they got: independent failure domains, horizontal scale for billing after the Oracle split (Cassandra for subscriber data, MySQL where they still needed ACID for charges), and customer-facing flows that stayed up while a dependency degraded. What they took on: operational complexity, active resilience, and a long migration — country by country, with proxies back to the datacenter, and under-automated end-to-end testing they underestimated.
-
-Copy the problem, not the logo. Netflix was already at a scale where the microservice premium was the cheaper bill.
-
-### Shopify — a monolith that stayed a monolith on purpose
-
-- One of the largest Ruby on Rails codebases in existence: over 2.8 million lines by 2020, continuous development since at least 2006, more than a thousand developers by 2019 — still one deployable.
-- In 2016 the original monolith had no real boundaries. Innocuous shipping changes cascaded into unrelated test failures; a new engineer on shipping also had to learn orders and payments.
-- Microservices were the fashionable answer. Shopify chose a **modular monolith**: Componentization (~6,000 Ruby classes reorganized by domain), then Packwerk to reject pull requests that break the dependency graph. By 2020 they had 37 components in the main monolith.
-- The payoff they reported was not "we avoided microservices." Isolated dependencies made it possible to swap a legacy tax engine — a change they described as nearly impossible before — plus clearer ownership and exception triage by component.
-- They still run a large monolith because the problem they had was modularity, not a need for independent runtimes. That is the sentence most conference talks skip.
-
-Werner Vogels, writing after Prime Video documented a stream-monitoring tool as a monolith, repeated that there is no mandated style. If components always contribute to the same response, share scaling and security needs, and are owned by one team, combining them can simplify the architecture. Amazon itself moved from a monolith toward services after the 1998 Distributed Computing Manifesto — and S3 grew from a few microservices at launch in 2006 to more than 300. Both directions are documented. Neither is a religion.
+Werner Vogels, writing after Prime Video documented a monitoring tool built as a monolith, repeated that there is no mandated style: components that always contribute to the same response, share scaling needs, and are owned by one team can be simpler together. Amazon itself moved from a monolith toward services, and S3 grew from a few microservices to more than 300. Both directions are documented. Neither is a religion.
 
 ## An e-commerce path from one deployable to a hybrid
 
@@ -237,9 +209,7 @@ You now have a hybrid. That is not an incomplete migration. It is an architectur
 
 Fowler's strategy, in one line: **start with a modular monolith and extract services when there is a demonstrated need.** Almost every successful microservice story he had heard started as a monolith that got too big; almost every system built as microservices from scratch ended in serious trouble. Microservices only work with stable boundaries. Refactoring a package is cheap. Refactoring a service boundary is a migration. That is YAGNI applied to process boundaries — once.
 
-What the monolith needs if you want the option to evolve: domains as the primary axis; bounded contexts even if they share a process; hexagonal / Clean Architecture so a module can later become a process; dependency inversion; module boundaries that are enforced. Shopify needed Packwerk because convention was not enough.
-
-Fowler's hedge: do not start with microservices unless the team already has experience running them. Architectures are allowed to change — Vogels revisits the design with every order of magnitude of growth. The named migration pattern is the **Strangler Fig**: add seams, build the new behavior beside the old, route a slice of traffic, repeat. AWS recommends it, including transitional architecture you will later delete. A big-bang rewrite is the last option.
+To keep the option of evolving, the monolith needs domains as the primary axis, bounded contexts even inside one process, dependency inversion so a module can later become a process, and boundaries that are enforced — Shopify needed Packwerk because convention was not enough. Do not start with microservices unless the team already runs them. When an extraction is justified, use the **Strangler Fig**: add seams, build the new behavior beside the old, route a slice of traffic, repeat. AWS recommends it; a big-bang rewrite is the last option.
 
 ## Wrong reasons, real signals
 
@@ -254,12 +224,6 @@ These are not sufficient reasons to split a process:
 - **"The monolith is ugly."** Ugliness is a modularity problem. Distribution does not remove ugly. It replicates it.
 
 Fowler called the eagerness _Microservice Envy_. Most systems, in his guideline, should be a single application with real modularity.
-
-A distributed architecture is on the table when several of these are true: demonstrated independent scale; independent teams already shipping on different clocks; stable bounded contexts; a concrete release-train reason; availability that differs by capability; a failure that currently takes down something more important; volume concentrated in one component; a different technology required, not desired; an org that can operate a distributed system on a bad Thursday; observability good enough to follow one request today; CI/CD that can already ship one artifact safely.
-
-One checked box is a smell, not a mandate. Three checked boxes and a missing observability story is a reason to stop.
-
-Small systems, MVPs, small teams: modular monolith. Large systems with independent teams, uneven scale, or distinct availability: consider services, one boundary at a time. Organizations without DevOps and observability maturity: do not import a distributed operating model to avoid a design conversation.
 
 > The best architecture is not the one with the most services. It is the one that solves the problem with the least necessary complexity.
 
