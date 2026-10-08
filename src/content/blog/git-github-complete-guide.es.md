@@ -2,11 +2,12 @@
 title: "Git y GitHub: cómo funcionan de verdad, y cómo los usan los equipos"
 description: "Git es un modelo de snapshots local. GitHub es la capa de colaboración. Cómo encajan working trees, ramas, merge, rebase, pull requests y reglas de protección en un workflow de equipo real."
 publishedAt: "2025-09-02T09:00:00Z"
-updatedAt: "2025-09-02T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [Git, GitHub]
-minutes: 25
 prerequisites:
   - línea de comandos básica
+related:
+  - why-pnpm-over-npm-and-yarn
 ---
 
 Dos desarrolladores cambian `UserService` la misma tarde. Ambos commits son correctos por separado. El segundo push es rechazado. El pull request se pone rojo. Alguien escribe `git pull` sin saber si eso hará merge, rebase, o se negará a moverse. Alguien más escribe `git reset --hard` porque un tutorial dijo que «descarta los cambios locales».
@@ -296,21 +297,6 @@ No pongas `pull.rebase=true` globalmente solo porque un blog lo listó bajo «de
 
 `git push` publica commits que el remote no tiene. Si el remote tiene commits que tú no tienes, un push default es rechazado. Ese rechazo significa «integra primero», no «fuerza». Haz fetch, lee los commits entrantes, después mergea o rebasea tu rama de topic. Hacer force-push a `main` para ganar la discusión borra el trabajo publicado de otra persona.
 
-```mermaid
-sequenceDiagram
-    participant L as Rama local
-    participant R as origin/branch
-
-    R-->>L: git fetch
-    Note right of L: Actualiza el marcador
-
-    R-->>L: git pull
-    Note right of L: Fetch + integrar<br/>Mueve tu rama
-
-    L->>R: git push
-    Note right of R: Mueve la rama remota
-```
-
 ## Conflictos de merge
 
 Un conflicto no es Git rompiéndose. Es Git negándose a adivinar.
@@ -382,27 +368,6 @@ Git no sabe qué es un revisor. GitHub no reemplaza a `git merge`. La plataforma
 
 Un pull request es la unidad profesional de integración en GitHub Flow. La rama tiene los commits. El pull request tiene la conversación, el veredicto de CI, y la decisión de mergear.
 
-```mermaid
-flowchart TD
-    main[main]
-    feature[feature/google-auth]
-
-    main --> feature
-    feature --> C1[commit]
-    C1 --> C2[commit]
-    C2 --> push[push]
-
-    push --> pr[Pull Request]
-
-    pr --> review[Revisión de código]
-    pr --> checks[CI checks]
-
-    review --> merge[Merge]
-    checks --> merge
-
-    merge --> main
-```
-
 Abre el pull request cuando el cambio está listo para feedback, no cuando te sientes lo suficientemente valiente para mergear. Un pull request **draft** señala que el trabajo es visible pero todavía no revisable. Conviértelo a ready cuando los tests pasen y la descripción pueda sostenerse sola.
 
 Pide **revisores** que sean dueños del código que tocaste. **Requested changes** bloquean el merge cuando el repositorio requiere aprobaciones. **Approve** significa que el revisor está dispuesto a ver esto aterrizar, no que escribió cada línea.
@@ -466,10 +431,6 @@ git switch -c recovery HEAD@{2}
 
 Eso crea una rama en la posición que HEAD tenía hace dos movimientos. Prefiere crear una rama de recovery antes de hacer `git reset --hard` a una entrada del reflog. El punto del reflog es que Git a menudo todavía tiene el snapshot que crees que destruiste. El trabajo sin commitear que nunca fue staged es otra historia: el reflog no puede reconstruir un archivo que nunca se convirtió en objeto.
 
-## Errores que no escalan
-
-Las ramas de topic son baratas; trabajar en `main` no lo es. Commits gigantes y pull requests gigantes ocultan riesgo. `git pull` sin una estrategia de reconciliación conocida produce merges o rebases sorpresa. `git reset --hard` y `git push --force` son reescrituras, no limpieza; `--force-with-lease` es más seguro y sigue siendo inadecuado en una rama default compartida. Un pull request debería ser una razón para cambiar `main`. Corre los tests relevantes antes de pedir a alguien más que mire. GitHub Flow más `main` protegido es suficiente para la mayoría de equipos de producto; ramas de entorno de larga vida extra son overhead, a menos que realmente publiques así.
-
 ## Un bucle realista: autenticación con Google
 
 El equipo necesita Google sign-in. `main` está protegido. CI corre lint y tests en pull requests. Tienes acceso de escritura, así que usas una rama, no un fork.
@@ -512,7 +473,7 @@ git pull
 git branch -d feature/google-auth
 ```
 
-Ese es todo el bucle profesional. Los comandos son cortos porque el modelo hizo el trabajo: un puntero, unos pocos snapshots, una comparación alojada, y una política que se negó a dejarte saltarte la revisión.
+Ese es todo el bucle profesional. GitHub Flow más un `main` protegido basta para la mayoría de equipos de producto: las ramas de topic duran poco, un pull request es una razón para cambiar `main`, y `reset --hard` o un force-push son una reescritura, no una limpieza. Los comandos son cortos porque el modelo hizo el trabajo: un puntero, unos pocos snapshots, una comparación alojada, y una política que se negó a dejarte saltarte la revisión.
 
 ## Fuentes
 

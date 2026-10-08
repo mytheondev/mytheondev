@@ -2,9 +2,8 @@
 title: "Race conditions: when two requests try to buy the same thing"
 description: "A check-then-act flow can sell the same seat twice. How atomic updates, constraints, locking, and idempotency keys keep exclusive resources consistent under concurrency."
 publishedAt: "2026-08-22T09:00:00Z"
-updatedAt: "2026-08-22T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [Architecture, Databases, API]
-minutes: 16
 prerequisites:
   - SQL
   - HTTP
@@ -327,7 +326,7 @@ POST /orders
 Idempotency-Key: 7b8f0c2a-3d91-4e1e-9c4a-12ab34cd56ef
 ```
 
-That header is not an HTTP standard. It is an [IETF HTTPAPI Internet-Draft](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header) and the header [Stripe documents](https://docs.stripe.com/api/idempotent_requests) for safe retries: store the first response for that key, replay it on later requests with the same key, and do not apply the side effect twice.
+That header is not an HTTP standard. It was an [IETF HTTPAPI Internet-Draft](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/) that expired without becoming an RFC, and it is the header [Stripe documents](https://docs.stripe.com/api/idempotent_requests) for safe retries: store the first response for that key, replay it on later requests with the same key, and do not apply the side effect twice.
 
 Locking answers "who may change F12 right now." Idempotency answers "is this the same operation I already accepted." A second user with a different key should still lose the seat. A retry with the **same** key should return the original hold, not a 409 against yourself.
 
@@ -392,7 +391,7 @@ If more than one client can change the same state, concurrency is not an edge ca
 - PostgreSQL, [11.6. Unique Indexes](https://www.postgresql.org/docs/current/indexes-unique.html) — unique indexes enforce `UNIQUE` and primary keys
 - PostgreSQL, [UPDATE](https://www.postgresql.org/docs/current/sql-update.html) — `UPDATE` as a single command with a search condition
 - IETF, [RFC 9110 — HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110) — §9.2.2 idempotent methods (`POST` is not); §15.5.10 `409 Conflict`; §15.5.13 `412 Precondition Failed`
-- IETF HTTPAPI, [The Idempotency-Key HTTP Header Field](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header) — Internet-Draft, not an RFC
+- IETF HTTPAPI, [The Idempotency-Key HTTP Header Field](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header) — expired Internet-Draft, never published as an RFC
 - Stripe, [Idempotent requests](https://docs.stripe.com/api/idempotent_requests) — `Idempotency-Key` as the documented retry contract
 - Redis, [SET](https://redis.io/docs/latest/commands/set/) — `NX` plus expiry as an atomic lock acquire
 - Redis, [Distributed locks](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/) — token on release; expiry while work continues; async-replication safety violation

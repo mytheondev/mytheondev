@@ -2,9 +2,8 @@
 title: "Logging estructurado en NestJS: seguir una petición fallida con transactionId"
 description: "Cómo implementar logs estructurados en NestJS con Pino para que un pago sea buscable por transactionId — la misma identidad que el artículo compañero separa de traceId."
 publishedAt: "2026-04-13T09:00:00Z"
-updatedAt: "2026-04-13T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [NestJS, Observability, Logging]
-minutes: 25
 prerequisites:
   - NestJS
   - TypeScript
@@ -27,21 +26,7 @@ El trabajo no es estampar un UUID en un string y llamarlo correlación. El traba
 
 Un monolito falla en un proceso. Abres un archivo. Un checkout en 2026 falla a través de procesos a los que no puedes hacer attach al mismo tiempo.
 
-```mermaid
-flowchart TD
-    frontend[Frontend]
-    gateway[API Gateway]
-    orders[Servicio de Orders]
-    payment[Servicio de Pagos]
-    notification[Servicio de Notificaciones]
-
-    frontend --> gateway
-    gateway --> orders
-    orders --> payment
-    payment --> notification
-```
-
-Cada caja escribe a su propio stdout. Cloud Run recoge esos streams independientemente. Si el único hecho compartido es "alrededor de las 03:04 UTC", estás alineando relojes y esperando que la siguiente petición no haya caído en el mismo segundo.
+Gateway, Orders, Payment y Notifications escriben cada uno a su propio stdout. Cloud Run recoge esos streams independientemente. Si el único hecho compartido es "alrededor de las 03:04 UTC", estás alineando relojes y esperando que la siguiente petición no haya caído en el mismo segundo.
 
 Las líneas no estructuradas lo empeoran:
 
@@ -64,13 +49,7 @@ Necesitas un campo que sea igual en cada hop de **este pago**. Entonces el incid
 
 Logging estructurado significa que cada línea es un **evento** con una forma estable: un nivel, un mensaje y campos que vas a consultar. JSON es la codificación usual. JSON no es la estrategia.
 
-Esto es un string que resulta mencionar un order:
-
-```ts
-console.log("Payment failed for order 123");
-```
-
-Esto es un evento:
+El `console.log` de arriba es un string que resulta mencionar un order. Esto es un evento:
 
 ```json
 {
@@ -96,16 +75,6 @@ Un evento útil tiene cuatro tipos de datos:
 Mantén los nombres de eventos aburridos y consistentes: `order.created`, `payment.started`, `payment.failed`. Trátalos como paths de API. Si cada servicio inventa su propio vocabulario, vuelves al folklore con llaves extra.
 
 Volcar un objeto como JSON no es logging estructurado. `logger.info({ req }, "request")` es una fuga estructurada. Diseñar los campos es el trabajo.
-
-## Estos identificadores no son intercambiables
-
-El [artículo compañero](/blog/trace-id-is-not-transaction-id/) define los trabajos. Esta página solo necesita lo suficiente para que NestJS no los colapse:
-
-- **`transactionId`** — el pago. Sobrevive reintentos y un worker que abre un segundo `traceId`. Esta es la clave de unión que implementas abajo.
-- **`applicationId`** — qué servicio escribió la línea. Se escribe localmente. No es identidad de petición.
-- **`requestId`** — un hop entrante. Útil en un access log. Muerto en el momento en que el siguiente servicio genera un UUID nuevo.
-- **`correlationId`** — un header casero. Vale antes de que exista `TX-98431`. No es un `transactionId`. No sustituye a `traceparent`.
-- **`traceId` / `spanId`** — una ejecución y un paso. Llévalos en paralelo vía W3C Trace Context. No reemplaces `transactionId` con ellos.
 
 ## Un contexto que realmente puedes ejecutar
 
@@ -156,38 +125,6 @@ Una línea de log de Payment debería verse así — campos, no un párrafo:
 
 Mismo `transactionId` en Orders, Payment y el worker. Distinto `applicationId` en cada línea. Un reintento posterior puede llevar un `traceId` diferente. Sigues encontrando el pago.
 
-## Un checkout que falla en Payment
-
-El usuario hace clic en Pagar. El navegador llama al gateway. El gateway llama a Orders. Orders crea el pedido, luego llama a Payment. Payment llama al proveedor. La tarjeta es rechazada. Orders registra el fallo y publica `order.payment_failed`. El notification worker debería avisar al usuario.
-
-```text
-Orders Service
-transactionId=TX-98431
-event=order.created
-
-Payment Service
-transactionId=TX-98431
-event=payment.started
-
-Payment Service
-transactionId=TX-98431
-event=payment.failed
-errorCode=card_declined
-
-Orders Service
-transactionId=TX-98431
-event=order.payment_failed
-
-Notification Worker
-transactionId=TX-98431
-traceId=def789
-event=notification.payment_failed.sent
-```
-
-Cinco líneas, tres procesos, un campo de negocio. El worker puede haber abierto un segundo trace — el diagrama del artículo compañero. Sigues buscando `transactionId="TX-98431"` y leyendo la historia en orden.
-
-Sin ese campo buscas `textPayload:"payment"` alrededor de las 03:04 y obtienes cada rechazo de la región. El siguiente checkout está en la misma ventana. Eliges el cobro equivocado. Pagas al dueño equivocado.
-
 ## Implementación: NestJS, Pino y un contexto que no pasas a mano
 
 El stack es aburrido a propósito: NestJS, TypeScript, [Pino](https://github.com/pinojs/pino), [`nestjs-pino`](https://github.com/iamolegga/nestjs-pino), y [`AsyncLocalStorage`](https://nodejs.org/api/async_context.html) de Node.
@@ -235,12 +172,14 @@ function resolveRequestId(req: IncomingMessage): string {
           paths: [
             "req.headers.authorization",
             "req.headers.cookie",
+            'res.headers["set-cookie"]',
             'req.headers["x-api-key"]',
             "req.body.password",
             "req.body.accessToken",
             "req.body.refreshToken",
             "req.body.cvv",
             "req.body.cardNumber",
+            "*.secret",
           ],
           censor: "[Redacted]",
         },
@@ -459,17 +398,7 @@ Envuélvelos de la misma forma: lee `getTransactionId()`, pon el header, o niég
 
 Los headers HTTP mueren en la respuesta. El email de notificación lo envía un worker que no estaba en el socket.
 
-```mermaid
-flowchart TD
-    orders["Order Service"]
-    payment["Payment Worker"]
-    notification["Notification Worker"]
-
-    orders -->|Pub/Sub| payment
-    payment --> notification
-```
-
-Los [mensajes de Pub/Sub](https://cloud.google.com/pubsub/docs/publisher) tienen `data` y **attributes** opcionales: pares clave-valor de strings, máximo 100, claves ≤ 256 bytes, valores ≤ 1024 bytes. Google documenta los attributes para metadatos como timestamps y **transaction ids**. Ese es el transporte.
+Los [mensajes de Pub/Sub](https://docs.cloud.google.com/pubsub/docs/publisher) tienen `data` y **attributes** opcionales: pares clave-valor de strings, máximo 100, claves ≤ 256 bytes, valores ≤ 1024 bytes. Google documenta los attributes para metadatos como timestamps y **transaction ids**. Ese es el transporte.
 
 ```ts
 import { PubSub } from "@google-cloud/pubsub";
@@ -507,32 +436,32 @@ Prefiere attributes sobre meter un objeto `metadata` en `data`:
 
 Los attributes son filtrables en la subscription. Sobreviven un cambio en el schema del payload. Se mantienen fuera del documento de negocio. Un bloque `metadata` anidado dentro de `data` funciona si cada consumidor recuerda buscarlo. El siguiente schema, el siguiente lenguaje y el siguiente intern no lo harán.
 
-El worker debe restaurar el store **antes** de loguear o publicar de nuevo. Una push subscription es una petición HTTP: copia `attributes.transactionId` a `x-transaction-id` y deja que el middleware lo vincule. Un pull worker no tiene child de `pino-http`. Vincula los campos tú mismo:
+El worker debe restaurar el store **antes** de loguear o publicar de nuevo. Una push subscription es una petición HTTP: copia `attributes.transactionId` a `x-transaction-id` y deja que el middleware lo vincule. Un pull worker no tiene child de `pino-http`, y `PinoLogger.assign()` lanza un error fuera de una petición (`unable to assign extra fields out of request scope`). Crea un child logger con los campos:
 
 ```ts
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { PinoLogger } from "nestjs-pino";
 import { isTransactionId, requestAls, SERVICE_NAME } from "./request-context";
 import { randomUUID } from "node:crypto";
 
 @Injectable()
 export class NotificationWorker {
-  private readonly logger = new Logger(NotificationWorker.name);
-
   constructor(private readonly pino: PinoLogger) {}
 
   async handle(message: { attributes: Record<string, string>; data: Buffer }) {
     const incoming = message.attributes.transactionId;
     if (!incoming || !isTransactionId(incoming)) {
-      this.logger.error({ event: "notification.orphaned" }, "Message missing transactionId");
+      this.pino.error({ event: "notification.orphaned" }, "Message missing transactionId");
       return;
     }
+
+    const logger = this.pino.logger.child({ transactionId: incoming, applicationId: SERVICE_NAME });
 
     await requestAls.run(
       { requestId: randomUUID(), applicationId: SERVICE_NAME, transactionId: incoming },
       async () => {
-        this.pino.assign({ transactionId: incoming, applicationId: SERVICE_NAME });
-        this.logger.log({ event: "notification.started" }, "Sending payment-failed email");
+        logger.info({ event: "notification.started" }, "Sending payment-failed email");
+        // pasa `logger` hacia abajo, o publica con getTransactionId() como antes
       },
     );
   }
@@ -558,25 +487,13 @@ No esperes que ALS sobreviva un publish. No esperes que `traceparent` sobreviva 
 
 Pon Orders, Payment y Notifications en Cloud Run y la plataforma hará exactamente lo que promete: recoger stdout de cada servicio en Cloud Logging, etiquetado con el recurso de ese servicio. No notará que los tres streams son una compra.
 
-```mermaid
-flowchart TD
-    client["Cliente"]
-    orders["Cloud Run<br/>orders-api"]
-    payment["Cloud Run<br/>payment-api"]
-    notification["Cloud Run<br/>notification-api"]
-
-    client --> orders
-    orders --> payment
-    payment --> notification
-```
-
 Sin un campo compartido abres tres servicios en Logs Explorer y scrolleas. Con `transactionId` en cada línea JSON, una consulta reconstruye la compra — incluyendo el worker que corrió después:
 
 ```text
 jsonPayload.transactionId="TX-98431"
 ```
 
-[El logging de Cloud Run](https://cloud.google.com/run/docs/logging) parsea cada línea de stdout. Un objeto JSON se convierte en `jsonPayload`. Un string plano se convierte en `textPayload`. `textPayload` es lo que obtienes de `console.log("Payment failed")`. Lo buscarás con substrings hasta que lo dejes.
+[El logging de Cloud Run](https://docs.cloud.google.com/run/docs/logging) parsea cada línea de stdout. Un objeto JSON se convierte en `jsonPayload`. Un string plano se convierte en `textPayload`. `textPayload` es lo que obtienes de `console.log("Payment failed")`. Lo buscarás con substrings hasta que lo dejes.
 
 Cloud Logging también eleva **campos especiales** del JSON al `LogEntry`. Los que importan aquí:
 
@@ -611,15 +528,15 @@ const SEVERITY: Record<string, string> = {
 }
 ```
 
-El sample propio de Cloud Run todavía lee `X-Cloud-Trace-Context` y escribe `logging.googleapis.com/trace` como `projects/PROJECT_ID/traces/TRACE_ID`. Prefiere `traceparent` cuando esté presente — Cloud Run lo pone en peticiones entrantes a servicios — y mantén el header legacy como fallback. Añade eso a `customProps`:
+El sample propio de Cloud Run todavía lee `X-Cloud-Trace-Context` y escribe `logging.googleapis.com/trace` como `projects/PROJECT_ID/traces/TRACE_ID`; la [referencia de LogEntry](https://docs.cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry) ahora recomienda el `TRACE_ID` crudo y mantiene el nombre de recurso solo por compatibilidad. Prefiere `traceparent` cuando esté presente — Cloud Run lo pone en peticiones entrantes a servicios — y mantén el header legacy como fallback. Añade eso a `customProps`:
 
 ```ts
-function cloudTrace(req: IncomingMessage, projectId: string): Record<string, string> {
+function cloudTrace(req: IncomingMessage): Record<string, string> {
   const traceparent = headerValue(req.headers.traceparent);
   const w3c = traceparent?.split("-");
   if (w3c?.[0] === "00" && w3c[1] && w3c[1] !== "0".repeat(32)) {
     return {
-      "logging.googleapis.com/trace": `projects/${projectId}/traces/${w3c[1]}`,
+      "logging.googleapis.com/trace": w3c[1],
       "logging.googleapis.com/spanId": w3c[2] ?? "",
     };
   }
@@ -628,7 +545,7 @@ function cloudTrace(req: IncomingMessage, projectId: string): Record<string, str
   const traceId = legacy?.split("/")[0];
   if (traceId) {
     return {
-      "logging.googleapis.com/trace": `projects/${projectId}/traces/${traceId}`,
+      "logging.googleapis.com/trace": traceId,
     };
   }
 
@@ -660,26 +577,9 @@ Esta línea es cómo esos valores escapan:
 this.logger.log({ req }, "incoming request");
 ```
 
-`pino-http` ya serializa un objeto de petición en el access log. Ese objeto incluye headers. Si también pasas `req` o `req.body` desde un handler, obtienes el body, el bearer token, y lo que sea que el cliente haya enviado como `cvv`. `redact` es una red de seguridad, no una licencia.
+`pino-http` ya serializa un objeto de petición en el access log. Ese objeto incluye headers. Si también pasas `req` o `req.body` desde un handler, obtienes el body, el bearer token, y lo que sea que el cliente haya enviado como `cvv`. `redact` es una red de seguridad, no una licencia. La lista de la config de `LoggerModule` de arriba es esa red; amplíala cuando aparezcan nuevos campos con secretos.
 
-Pino redacta **paths que listes**, en tiempo de serialización, usando [`fast-redact`](https://github.com/pinojs/pino/blob/main/docs/redaction.md). Los paths son case-sensitive. Headers con guiones necesitan notación de corchetes. Existen wildcards (`req.headers["x-api-key"]`, `users[*].password`). El input de usuario nunca debe definir esos paths — la librería los evalúa en una VM.
-
-```ts
-redact: {
-  paths: [
-    "req.headers.authorization",
-    "req.headers.cookie",
-    'res.headers["set-cookie"]',
-    "req.body.password",
-    "req.body.accessToken",
-    "req.body.refreshToken",
-    "req.body.cvv",
-    "req.body.cardNumber",
-    "*.secret",
-  ],
-  censor: "[Redacted]",
-}
-```
+Pino redacta **paths que listes**, en tiempo de serialización, usando [`fast-redact`](https://github.com/pinojs/pino/blob/main/docs/redaction.md). Los paths son case-sensitive. Headers con guiones necesitan notación de corchetes. Existen wildcards (`*.secret`, `users[*].password`). El input de usuario nunca debe definir esos paths — la librería los evalúa en una VM.
 
 Defensa en capas:
 
@@ -719,37 +619,6 @@ Incluso ese `info` en cada 200 dominará un servicio de alto QPS. Ignora health.
 
 No loguees `error` para un 404 que el cliente causó, o `info` para una tarjeta rechazada que ya manejas. Un rechazo es un resultado de negocio: `warn` o `info` con `event=payment.failed` es suficiente a menos que la llamada al proveedor haya lanzado.
 
-## Mal logging vs buen logging
-
-```ts
-console.log("Error processing payment");
-console.log(order);
-console.log(req);
-```
-
-Tres líneas, sin nombre de evento, sin clave de unión, un objeto order completo (cliente, hints de tarjeta, lo que sea que el ORM cargó), y la petición (Authorization, cookies, body). No puedes filtrarlas. No puedes probar que son el mismo checkout. Puede que acabes de escribir un PAN en un bucket con retención de 30 días.
-
-```ts
-this.logger.error(
-  {
-    event: "payment.failed",
-    paymentProvider,
-    errorCode,
-  },
-  "Payment processing failed",
-);
-```
-
-Un evento. Campos que vas a consultar. Una frase para la línea de tiempo. `transactionId` y `applicationId` ya vinculados. Nada en `order` o `req` que no hayas elegido.
-
-La segunda forma es más lenta de escribir la primera vez y más rápida cada vez que estás de guardia.
-
-## transactionId no es un traceId
-
-Esa es la misma división que el [artículo compañero](/blog/trace-id-is-not-transaction-id/). Un `transactionId` lista cada línea de log del pago, incluyendo un worker que corrió después bajo un nuevo `traceId`. No te da un grafo padre/hijo, latencia por hop, ni una decisión de sampling.
-
-Todavía quieres `transactionId` cuando un hop no habla `traceparent`, cuando un worker inicia un nuevo trace, cuando soporte necesita un id de ticket, cuando el trace no fue muestreado, o cuando finanzas pregunta por el cobro la semana que viene. No presentes `x-transaction-id` como un OpenTelemetry más barato. No presentes `x-correlation-id` como un `transactionId`.
-
 ## 3:00 AM — un pago falló
 
 Un cliente escribe: la tarjeta fue cobrada, o no, y la app mostró un error. Incluyen `TX-98431` del recibo, o encuentras `x-transaction-id` en la respuesta.
@@ -768,56 +637,21 @@ Un cliente escribe: la tarjeta fue cobrada, o no, y la app mostró un error. Inc
 
 Ese recorrido es la razón por la que existe el resto del artículo. El MTTR es el tiempo hasta el campo, no el tiempo hasta la teoría.
 
-## Arquitectura que vale la pena copiar
+## Forma recomendada para un servicio NestJS
 
-```mermaid
-flowchart TD
-  Client --> Gateway[API Gateway]
-  Gateway --> Orders[Orders API]
-  Orders --> Payment[Payment API]
-  Payment --> Provider[Proveedor de Pagos]
-  Orders --> Topic[Pub/Sub]
-  Topic --> Notify[Notification Worker]
-```
-
-`transactionId` se genera en Orders y se copia en cada flecha después de eso: header HTTP en Orders → Payment → Provider (si el proveedor permite headers personalizados), Pub/Sub attributes en Orders → Worker.
-
-`applicationId` lo escribe cada caja. Cambia. Así es como ves quién habló.
-
-`traceId` sigue la ruta HTTP síncrona cuando OpenTelemetry o el `traceparent` de Cloud Run está en juego. El worker puede iniciar un nuevo trace. `TX-98431` no cambia.
-
-Forma recomendada para un servicio NestJS:
+`transactionId` se genera en Orders y se copia en cada flecha después de eso; `applicationId` lo escribe cada caja; `traceId` sigue la ruta HTTP síncrona y puede reiniciarse en el worker. En código, son siete piezas:
 
 1. `LoggerModule.forRoot` una vez. `genReqId` para el hop, `customProps` para `applicationId`, `redact`, ignorar health.
 2. `RequestContextMiddleware` entra en `AsyncLocalStorage` y vincula `x-transaction-id` entrante.
 3. Los controladores hacen `assign({ transactionId })` cuando se crea el registro de negocio.
 4. `OutboundTransactionInterceptor` en `HttpService.axiosRef`.
 5. Los publishers copian `getTransactionId()` a los attributes del mensaje.
-6. Los consumidores llaman `requestAls.run` con el mismo `transactionId` antes de loguear o publicar.
+6. Los consumidores entran en `requestAls.run` con el mismo `transactionId` y loguean con un child logger antes de loguear o publicar.
 7. Opcional: SDK de OpenTelemetry. Mismo store, `traceparent` en un header diferente.
-
-## Checklist
-
-- Logs estructurados: un evento JSON por línea, nombres de campos estables
-- `transactionId` en cada evento de negocio, asignado una vez, nunca reinventado
-- Propagación de contexto: ALS en proceso, no parámetros de método
-- Redacción: secretos eliminados en el logger
-- Niveles de log: producción no es `debug`
-- Eventos consistentes: `order.created`, no prosa libre
-- Metadatos útiles: `errorCode`, `applicationId`
-- Sin secretos, tokens, cookies, PAN, CVV
-- Propagación HTTP: `x-transaction-id` una vez que el registro existe
-- Propagación async: Pub/Sub attributes y metadata de jobs llevan `transactionId`
-- `traceparent` cuando distributed tracing está activado; no es sustituto de `transactionId`
-- Retención lo suficientemente larga para terminar un incidente
 
 ## La petición tiene que seguir siendo reconstruible
 
-Un fallo de producción es una ruta. El logging estructurado hace de cada paso una fila. `transactionId` hace de esas filas un solo result set — incluyendo el worker que abrió un segundo `traceId`. La redacción evita que el result set se convierta en una brecha. Los niveles evitan que se convierta en ruido.
-
-Pon un UUID en `x-request-id` si quieres. Ese es el hop. El diseño es el contexto de negocio: quién genera `TX-98431`, quién rechaza uno malo, quién lo copia al siguiente hop, y qué campos estás dispuesto a almacenar durante un mes.
-
-Cuando eso está en su lugar, "¿qué pasó con este pago?" es un filtro. Hasta entonces, sigues alineando timestamps. Los identificadores mismos están en el [artículo compañero](/blog/trace-id-is-not-transaction-id/). Esta página es cómo llegan a NestJS.
+Un fallo de producción es una ruta. El logging estructurado hace de cada paso una fila; `transactionId` hace de esas filas un solo result set, incluido el worker que abrió un segundo `traceId`. La redacción evita que ese result set se convierta en una brecha. Los niveles evitan que se convierta en ruido. Con eso en su lugar, "¿qué pasó con este pago?" es un filtro, no una cacería de timestamps.
 
 ## Fuentes
 
@@ -832,13 +666,13 @@ Cuando eso está en su lugar, "¿qué pasó con este pago?" es un filtro. Hasta 
 - [pino-http](https://github.com/pinojs/pino-http) — `genReqId`, `customProps`, `autoLogging`, `customLogLevel`
 - Node.js, [`crypto.randomUUID`](https://nodejs.org/api/crypto.html#cryptorandomuuidoptions)
 - Node.js, [AsyncLocalStorage](https://nodejs.org/api/async_context.html#class-asynclocalstorage)
-- Google Cloud, [Structured logging](https://cloud.google.com/logging/docs/structured-logging) — campos JSON especiales
-- Google Cloud, [Logging and viewing logs in Cloud Run](https://cloud.google.com/run/docs/logging) — stdout JSON, sample de `X-Cloud-Trace-Context`
-- Google Cloud, [Using distributed tracing — Cloud Run](https://cloud.google.com/run/docs/trace)
+- Google Cloud, [Structured logging](https://docs.cloud.google.com/logging/docs/structured-logging) — campos JSON especiales
+- Google Cloud, [Logging and viewing logs in Cloud Run](https://docs.cloud.google.com/run/docs/logging) — stdout JSON, sample de `X-Cloud-Trace-Context`
+- Google Cloud, [Using distributed tracing — Cloud Run](https://docs.cloud.google.com/run/docs/trace)
 - Google Cloud, [Trace context — Cloud Trace](https://docs.cloud.google.com/trace/docs/trace-context) — `traceparent` y `X-Cloud-Trace-Context`
-- Google Cloud, [LogEntry](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry) — `trace`, `spanId`, `traceSampled`
-- Google Cloud, [Publish messages](https://cloud.google.com/pubsub/docs/publisher) — attributes como metadata
-- Google Cloud, [PubsubMessage](https://cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage)
+- Google Cloud, [LogEntry](https://docs.cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry) — `trace`, `spanId`, `traceSampled`
+- Google Cloud, [Publish messages](https://docs.cloud.google.com/pubsub/docs/publisher) — attributes como metadata
+- Google Cloud, [PubsubMessage](https://docs.cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage)
 - OpenTelemetry, [Logs](https://opentelemetry.io/docs/concepts/signals/logs/)
 - OpenTelemetry, [Traces](https://opentelemetry.io/docs/concepts/signals/traces/)
 - OpenTelemetry, [Context propagation](https://opentelemetry.io/docs/concepts/context-propagation/)

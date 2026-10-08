@@ -2,9 +2,8 @@
 title: "JWT vs API Keys: ¿cuál deberías usar en una API?"
 description: "JWT es un formato de token. Una API Key es una credencial. Este artículo muestra en qué se diferencian, cuándo encaja cada una y por qué una API moderna puede usar ambas sin tener que elegir un ganador."
 publishedAt: "2026-08-19T09:00:00Z"
-updatedAt: "2026-08-19T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [Security, Architecture, NestJS, API]
-minutes: 21
 prerequisites:
   - HTTP
   - JWT
@@ -57,7 +56,7 @@ flowchart TD
 | Access token  | Una credencial que representa una autorización emitida a un cliente                        |
 | Claim         | Una aserción nombre/valor dentro de un JWT: quién lo emitió, de quién trata, cuándo caduca |
 
-`user-123` y `partner-acme` son ambas identidades. No son el mismo tipo de principal. La credencial en la petición (contraseña, API Key, bearer token) es evidencia, no la identidad. [OWASP API2:2023](https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/) es explícito: OAuth no es autenticación, y las API Keys tampoco: OAuth emite una autorización; una API Key identifica un cliente. La autorización es una pregunta posterior — scopes, roles, propiedad — y puede fallar con HTTP 403 después de un 401 correcto.
+`user-123` y `partner-acme` son ambas identidades. No son el mismo tipo de principal. La credencial en la petición (contraseña, API Key, bearer token) es evidencia, no la identidad. [OWASP API2:2023](https://owasp.org/API-Security/editions/2023/en/0xa2-broken-authentication/) es explícito: OAuth no es autenticación, y las API Keys tampoco: OAuth emite una autorización; una API Key identifica un cliente. La autorización es una pregunta posterior — scopes, roles, propiedad — y puede fallar con HTTP 403 aunque la autenticación haya funcionado.
 
 Un **access token** es [RFC 6749 §1.4](https://www.rfc-editor.org/rfc/rfc6749#section-1.4): «una cadena que representa una autorización emitida al cliente». Suele ser opaca para el cliente. Puede ser una clave de consulta, o puede autocontener el grant como JWT. El RFC no exige un JWT. Un **claim** es [RFC 7519](https://www.rfc-editor.org/rfc/rfc7519): una aserción sobre un sujeto. `sub`, `aud`, `scope` son claims en un JWT. No son una propiedad de las API Keys.
 
@@ -65,7 +64,7 @@ Si tratas autenticación como autorización, emites un token que solo significa 
 
 ## Qué es realmente un JWT
 
-[RFC 7519](https://www.rfc-editor.org/rfc/rfc7519) define JSON Web Token: un medio compacto y seguro para URL de representar claims que se transfieren entre dos partes. JWT es un formato de token. No es un sistema de autenticación. No define login, logout, sesiones ni revocación. Un JWT que se valida correctamente sigue siendo válido hasta que se rechaza.
+[RFC 7519](https://www.rfc-editor.org/rfc/rfc7519) define JSON Web Token: un medio compacto y seguro para URL de representar claims que se transfieren entre dos partes. JWT es un formato de token. No es un sistema de autenticación. No define login, logout, sesiones ni revocación. Una vez emitido, cualquier verificador que confíe en la clave lo acepta hasta `exp`, salvo que agregues estado para rechazarlo antes.
 
 La forma compacta habitual de un JWT firmado son tres segmentos base64url: `header.payload.signature`.
 
@@ -195,17 +194,11 @@ Trata una API Key como una contraseña. El cheat sheet de [Secrets Management](h
 
 Para JWT, RFC 8725 es el BCP: allowlist de `alg`, vincula claves a `iss`, exige y comprueba `aud` cuando un issuer sirve a varias APIs, no descargues claves desde `jku`/`x5u`. Un JWT bearer en `localStorage` está al alcance de XSS; un JWT en una URL está al alcance de los logs. Un TTL corto limita la ventana de robo; no es un interruptor de apagado. La frase que hay que matar en code review: «Está firmado, así que nadie puede leerlo». Firmado no es cifrado. El [JWT cheat sheet](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_Cheat_Sheet.html) de OWASP es directo: si necesitas logout, necesitas una denylist o una sesión. Stateless es una conveniencia de despliegue, no una propiedad de seguridad.
 
-## Expiración no es revocación
+**Expiración no es revocación.** Un JWT validado en local sigue siendo aceptable hasta `exp`, aunque el usuario haya cerrado sesión, cambiado la contraseña o un admin haya bloqueado la cuenta. Los TTL cortos encogen esa ventana; la revocación inmediata necesita estado: una denylist por `jti`, introspection de un token opaco o una fila de sesión. Una API Key o un token opaco que es una fila se puede deshabilitar en la siguiente petición. Si el producto tiene un botón de Logout, [cómo funcionan de verdad los refresh tokens y las sesiones](/blog/refresh-tokens-do-not-keep-access-tokens-alive/) es la arquitectura detrás.
 
-Un JWT puede contener `exp`. Si el verificador lo comprueba, el token muere en ese instante. Hasta entonces, un JWT validado en local sigue siendo aceptable aunque el usuario haya cerrado sesión, haya cambiado la contraseña o un admin haya deshabilitado la cuenta — salvo que añadas otra comprobación.
+## Cuándo encaja cada uno
 
-Los access tokens de vida corta encogen esa ventana. No te dan revocación inmediata. La revocación inmediata necesita estado: una denylist indexada por `jti`, introspection de un token opaco, una fila de sesión, o una lista de estado de tokens. RFC 7519 dice que `jti` _puede_ usarse para prevenir replay. No implementa una denylist por ti.
-
-Si necesitas sesiones, diseña sesiones. No comentes `// JWT is stateless` en un producto que tiene un botón de Logout. El artículo de refresh tokens es la arquitectura de ese botón.
-
-El ciclo de vida de una API Key es lo que hayas construido. Google Cloud documenta rotar y borrar. OWASP REST dice revocar ante abuso. Una key hardcodeada en una librería que no puedes actualizar no rota. Los access tokens opacos se acercan a las keys en este eje: el servidor posee la fila. JWT se acerca a un certificado: válido hasta caducar salvo que añadas una lista.
-
-## ¿Cuándo basta una API Key?
+### ¿Cuándo basta una API Key?
 
 Una API Key puede encajar razonablemente cuando:
 
@@ -217,13 +210,13 @@ Una API Key puede encajar razonablemente cuando:
 
 No basta, por la propia advertencia de OWASP REST, como control exclusivo sobre recursos sensibles, críticos o de alto valor. No es un login de usuario. No es OAuth. Si el partner más adelante necesita acceso delegado de usuario, te quedaste corto de la key para ese camino; no demostraste que «las keys no funcionan».
 
-## ¿Cuándo necesitas access tokens?
+### ¿Cuándo necesitas access tokens?
 
 Necesitas algo que represente una autorización cuando llama un usuario autenticado; cuando necesitas scopes, restricción de audience, una credencial que caduca, identidad en la petición o delegación (el trabajo real de OAuth); o cuando la API está protegida como un recurso OAuth.
 
 Access token **no** significa JWT. RFC 6749 permite formatos distintos. Un access token JWT puede validarse en local con las claves del issuer (RFC 9068 describe ese perfil). Un token opaco se valida consultándolo o haciendo introspection. La validación JWT local no habla con el authorization server en cada petición; tampoco ve una revocación hasta `exp` o una denylist. Elige el trade operativo, no el buzzword.
 
-## ¿Cuándo JWT puede ser innecesario?
+### ¿Cuándo JWT puede ser innecesario?
 
 JWT no es un upgrade por defecto. Puede que no lo necesites cuando solo necesitas identificar a un consumidor, solo necesitas rate limiting y cuotas, no necesitas transportar claims, una credencial más simple ya nombra correctamente a quien llama, o cada petición ya pega contra un almacén de sesiones y el discurso «stateless» es ficción.
 
@@ -300,7 +293,7 @@ export class JwtAuthGuard implements CanActivate {
 
     try {
       request.user = await this.jwt.verifyAsync(token, {
-        secret: process.env.JWT_ACCESS_SECRET,
+        publicKey: process.env.JWT_PUBLIC_KEY,
         algorithms: ["RS256"],
         issuer: process.env.JWT_ISSUER,
         audience: process.env.JWT_AUDIENCE,
@@ -314,7 +307,7 @@ export class JwtAuthGuard implements CanActivate {
 }
 ```
 
-Lee la API Key de un header, no del query string. Compara contra un hash. No loguees la key en crudo. `algorithms` es una allowlist. Issuer y audience son política de la aplicación, alineada con RFC 8725 cuando usas esos claims.
+Lee la API Key de un header, no del query string. Compara contra un hash. No loguees la key en crudo. `algorithms` es una allowlist. RS256 verifica con la clave **pública** del emisor; un `secret` compartido es de HS256, donde la API también podría emitir tokens. Issuer y audience son política de la aplicación, alineada con RFC 8725 cuando usas esos claims.
 
 `JwtAuthGuard` autentica. Un `RolesGuard` o un guard de policies autoriza. No escondas comprobaciones de ACL dentro de la verificación de firma. Una ruta que acepta cualquiera de las dos credenciales es posible si el handler puede unir `request.user` y `request.consumer` a un modelo de autorización común. Una ruta que exige ambas es el caso de «dos credenciales» de arriba. No hagas glob de `APP_GUARD` con los dos y lo llames defensa en profundidad.
 
@@ -331,27 +324,6 @@ Los secretos salen del entorno, no del repo. Esto es un bosquejo. La arquitectur
 - **«Una API Key no necesita rotación».** Google Cloud te dice que rotes. Un secreto bearer estático que nunca cambia es una ventana de fuga permanente.
 - **«Deberíamos usar JWT y una API Key juntos para estar más seguros».** Dos comprobaciones rotas no son más fuertes que una correcta. Añade la segunda credencial cuando dos principales deban quedar unidos a la petición.
 - **«Una API debe usar un solo mecanismo de autenticación».** Usuarios y partners no son el mismo consumidor. La uniformidad es opcional. La responsabilidad clara por mecanismo no lo es.
-
-## Una tabla práctica de decisión
-
-No es un estándar. Es un empujón para la conversación de diseño.
-
-| Necesidad                        |       API Key | Access Token / JWT |
-| -------------------------------- | ------------: | -----------------: |
-| Identificar una aplicación       |             ✓ |                  ✓ |
-| Identificar un usuario           |             — |                  ✓ |
-| Rate limiting                    |             ✓ |                  ✓ |
-| Cuotas                           |             ✓ |                  ✓ |
-| Claims                           |             — |              JWT ✓ |
-| Scopes                           |             — |                  ✓ |
-| Usuario final                    | En general no |                  ✓ |
-| Integración externa              |             ✓ |                  ✓ |
-| Service-to-service               |             ✓ |                  ✓ |
-| OAuth 2.0                        |             — |                  ✓ |
-| API pública para desarrolladores |             ✓ | Puede complementar |
-| SaaS con usuarios y partners     |             ✓ |                  ✓ |
-
-Ambas columnas pueden ser ciertas en la misma plataforma. «En general no» para usuarios finales es OWASP API2, no un gusto.
 
 ## Fuentes
 

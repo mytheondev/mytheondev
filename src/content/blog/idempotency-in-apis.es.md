@@ -2,9 +2,8 @@
 title: "Idempotencia en APIs: un retry no debería duplicar la operación"
 description: "Un timeout no te dice si el servidor procesó el pago. Qué significa que una operación sea idempotente, cómo los retries duplican efectos y cómo una Idempotency-Key hace seguro volver a intentar."
 publishedAt: "2026-08-23T21:00:00Z"
-updatedAt: "2026-08-23T21:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [Architecture, API]
-minutes: 13
 prerequisites:
   - HTTP
   - REST
@@ -186,7 +185,7 @@ flowchart TD
     process --> store["Guardar resultado"]
 ```
 
-`Idempotency-Key` no es un header de RFC 9110. Es el contrato que [documenta Stripe](https://docs.stripe.com/api/idempotent_requests) y el nombre de un [Internet-Draft de IETF HTTPAPI](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header). Amazon EC2 hace lo mismo con un parámetro `ClientToken`: si reintentas con el mismo token y los mismos parámetros, la acción no se relanza; si los parámetros cambian, responde `IdempotentParameterMismatch`.
+`Idempotency-Key` no es un header de RFC 9110. Es el contrato que [documenta Stripe](https://docs.stripe.com/api/idempotent_requests) y el nombre de un [Internet-Draft de IETF HTTPAPI](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/) que expiró sin llegar a RFC. La convención sigue viva en APIs de proveedores, no en un estándar. Amazon EC2 hace lo mismo con un parámetro `ClientToken`: si reintentas con el mismo token y los mismos parámetros, la acción no se relanza; si los parámetros cambian, responde `IdempotentParameterMismatch`.
 
 Stripe sugiere UUID v4 u otra cadena con suficiente entropía, hasta 255 caracteres, y evita usar email u otros identificadores personales como key. Guarda el status y el body de la primera ejecución —también un `500`— y los reproduce. Compara los parámetros entrantes con los originales y falla si no coinciden. Retiene las keys al menos 24 horas. No guarda resultado si la petición ni siquiera entra a ejecutar el endpoint: validación fallida o conflicto con otra request concurrente se pueden reintentar.
 
@@ -344,7 +343,7 @@ Eso no es una regla absoluta. Es una prueba de diseño. El timeout va a ocurrir.
 
 - IETF, [RFC 9110 — HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110.html) — §9.2.1 métodos safe; §9.2.2 métodos idempotentes (`PUT`, `DELETE` y los safe); un cliente no debería reintentar automáticamente un método no idempotente salvo que conozca la semántica real
 - IETF, [RFC 5789 — PATCH Method for HTTP](https://datatracker.ietf.org/doc/html/rfc5789) — `PATCH` no es safe ni idempotente por definición; una petición concreta puede emitirse de forma idempotente
-- IETF HTTPAPI, [The Idempotency-Key HTTP Header Field](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header) — Internet-Draft, no un RFC; el header no es semántica HTTP cerrada
+- IETF HTTPAPI, [The Idempotency-Key HTTP Header Field](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header) — Internet-Draft expirado (-07), nunca publicado como RFC
 - AWS, [REL04-BP04 Make mutating operations idempotent](https://docs.aws.amazon.com/wellarchitected/latest/framework/rel_prevent_interaction_failure_idempotent.html) — tokens, estados, concurrencia, TTL; at most once / at least once frente a varios intentos con el mismo efecto
 - AWS, [Ensuring idempotency in Amazon EC2 API requests](https://docs.aws.amazon.com/ec2/latest/devguide/ec2-api-idempotency.html) — `ClientToken`, `IdempotentParameterMismatch`, recomendaciones de retry por clase de status
 - Stripe, [Designing robust and predictable APIs with idempotency](https://stripe.com/blog/idempotency) — tres fallos de red; `Idempotency-Key`; backoff y jitter

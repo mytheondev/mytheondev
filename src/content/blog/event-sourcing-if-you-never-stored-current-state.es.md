@@ -4,6 +4,9 @@ description: "Guardar solo el saldo responde dónde estás, no cómo llegaste. Q
 publishedAt: "2026-09-01T09:00:00Z"
 updatedAt: "2026-09-01T09:00:00Z"
 tags: [Architecture, DDD, TypeScript]
+prerequisites:
+  - TypeScript
+  - SQL
 related:
   - idempotency-in-apis
   - google-cloud-pubsub-how-to-use-it-correctly
@@ -151,7 +154,7 @@ flowchart TD
   eventStore --> analytics[Analytics Projection]
 ```
 
-El saldo de la UI no tiene que salir de un `reduce` en cada GET. Una proyección puede mantener `account-123 --> 1400` en una tabla lista para leer. El historial de movimientos puede ser otra tabla. Un agregado analítico — depósitos por día, retiros por canal — otra. Ninguna de esas tablas es la fuente de verdad. Si una se equivoca, se borra y se vuelve a proyectar desde el store.
+El saldo de la UI no tiene que salir de un `reduce` en cada GET. Una proyección puede mantener `account-123 → 1400` en una tabla lista para leer. El historial de movimientos puede ser otra tabla. Un agregado analítico — depósitos por día, retiros por canal — otra. Ninguna de esas tablas es la fuente de verdad. Si una se equivoca, se borra y se vuelve a proyectar desde el store.
 
 Esto todavía no es CQRS. Es la observación de Fowler de que, en un sistema event-sourced, puedes tener varias working copies con distinto schema. La proyección es esa working copy, mantenida con eager derivation: se actualiza cuando llega el evento, para que la lectura no recorra el log.
 
@@ -449,13 +452,9 @@ Puedes tener Event Sourcing en un monolito, síncrono, con una sola proyección 
 
 ## Conclusión
 
-Event Sourcing persiste cada cambio como un evento inmutable y trata esa secuencia como fuente de verdad. El estado actual — el saldo, el carrito, los asientos ocupados — es una proyección. El problema que resuelve es el de la cuenta de S/ 5,000: no solo dónde estamos, sino cómo llegamos, con un historial que se puede replayar, auditar y proyectar de más de una forma.
+Event Sourcing se gana su costo cuando el negocio tiene que explicar cómo llegó al estado actual: ledgers, reservas con conflicto, workflows que se compensan. Donde CRUD describe el documento actual y nadie pregunta por el camino, el store, las proyecciones y el versionado son complejidad sin retorno. Aplícalo a un Bounded Context, no a la ficha de usuario ni al flag de configuración.
 
-Los beneficios son reales donde el dominio los pide: audit trail que no es un extra, reconstrucción point-in-time, compensating events en vez de borrados, varios read models desde un origen, posibilidad de rebuild. Los costos también: eventual consistency, versionado eterno, projections que hay que operar, snapshots, idempotencia, debugging de replay frente a sistemas externos, y una complejidad que no se va, se muda.
-
-Úsalo cuando el historial sea parte del negocio — ledgers, reservas con conflicto, workflows que se compensan, dominios que tienen que explicar cada cambio. Evítalo cuando CRUD describe el documento actual y nadie va a preguntar por el camino. Aplícalo a un Bounded Context, no a la ficha de usuario ni al flag de configuración.
-
-**Una arquitectura no debe elegirse porque sea sofisticada, sino porque responde adecuadamente a las necesidades del dominio.** Event Sourcing es una herramienta. No es un objetivo.
+**Elige una arquitectura porque responde al dominio, no porque sea sofisticada.**
 
 ## Fuentes
 

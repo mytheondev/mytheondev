@@ -2,11 +2,12 @@
 title: "Git and GitHub: how they actually work, and how teams use them"
 description: "Git is a local snapshot model. GitHub is the collaboration layer. How working trees, branches, merge, rebase, pull requests, and protection rules fit a real team workflow."
 publishedAt: "2025-09-02T09:00:00Z"
-updatedAt: "2025-09-02T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [Git, GitHub]
-minutes: 25
 prerequisites:
   - basic command line
+related:
+  - why-pnpm-over-npm-and-yarn
 ---
 
 Two developers change `UserService` on the same afternoon. Both commits are correct in isolation. The second push is rejected. The pull request turns red. Someone types `git pull` without knowing whether that will merge, rebase, or refuse to move. Someone else types `git reset --hard` because a tutorial said it "discards local changes."
@@ -296,21 +297,6 @@ Do not set `pull.rebase=true` globally just because a blog listed it under "usef
 
 `git push` publishes commits the remote lacks. If the remote has commits you lack, a default push is rejected. That rejection means "integrate first," not "force." Fetch, read the incoming commits, then merge or rebase your topic branch. Force-pushing `main` to win the argument deletes someone else's published work.
 
-```mermaid
-sequenceDiagram
-    participant L as Local branch
-    participant R as origin/branch
-
-    R-->>L: git fetch
-    Note right of L: Updates the bookmark
-
-    R-->>L: git pull
-    Note right of L: Fetch + integrate<br/>Moves your branch
-
-    L->>R: git push
-    Note right of R: Moves the remote branch
-```
-
 ## Merge conflicts
 
 A conflict is not Git breaking. It is Git refusing to guess.
@@ -382,27 +368,6 @@ Git does not know what a reviewer is. GitHub does not replace `git merge`. The p
 
 A pull request is the professional unit of integration in GitHub Flow. The branch holds the commits. The pull request holds the conversation, the CI verdict, and the decision to merge.
 
-```mermaid
-flowchart TD
-    main[main]
-    feature[feature/google-auth]
-
-    main --> feature
-    feature --> C1[commit]
-    C1 --> C2[commit]
-    C2 --> push[push]
-
-    push --> pr[Pull Request]
-
-    pr --> review[Code review]
-    pr --> checks[CI checks]
-
-    review --> merge[Merge]
-    checks --> merge
-
-    merge --> main
-```
-
 Open the pull request when the change is ready for feedback, not when you feel brave enough to merge it. A **draft** pull request signals that the work is visible but not reviewable yet. Convert it to ready when the tests pass and the description can stand on its own.
 
 Ask for **reviewers** who own the code you touched. **Requested changes** block merge when the repository requires approvals. **Approve** means the reviewer is willing to see this land, not that they typed every line.
@@ -466,10 +431,6 @@ git switch -c recovery HEAD@{2}
 
 That creates a branch at the position HEAD held two moves ago. Prefer creating a recovery branch before `git reset --hard` to a reflog entry. The point of the reflog is that Git often still has the snapshot you think you destroyed. Uncommitted work that was never staged is a different story: the reflog cannot reconstruct a file that never became an object.
 
-## Mistakes that do not scale
-
-Topic branches are cheap; working on `main` is not. Giant commits and giant pull requests hide risk. `git pull` without a known reconcile strategy produces surprise merges or rebases. `git reset --hard` and `git push --force` are rewrites, not cleanup; `--force-with-lease` is safer and still wrong on a shared default branch. One pull request should be one reason to change `main`. Run the relevant tests before you ask someone else to look. GitHub Flow plus protected `main` is enough for most product teams; extra long-lived environment branches are overhead unless you actually ship that way.
-
 ## A realistic loop: Google authentication
 
 The team needs Google sign-in. `main` is protected. CI runs lint and tests on pull requests. You have write access, so you use a branch, not a fork.
@@ -512,7 +473,7 @@ git pull
 git branch -d feature/google-auth
 ```
 
-That is the whole professional loop. The commands are short because the model did the work: a pointer, a few snapshots, a hosted comparison, and a policy that refused to let you skip the review.
+That is the whole professional loop. GitHub Flow plus a protected `main` is enough for most product teams: topic branches stay short, one pull request is one reason to change `main`, and `reset --hard` or a force-push is a rewrite, not cleanup. The commands are short because the model did the work: a pointer, a few snapshots, a hosted comparison, and a policy that refused to let you skip the review.
 
 ## Sources
 

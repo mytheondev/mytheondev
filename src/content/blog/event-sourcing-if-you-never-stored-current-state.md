@@ -4,15 +4,18 @@ description: "Storing only the current balance answers where you are, not how yo
 publishedAt: "2026-09-01T09:00:00Z"
 updatedAt: "2026-09-01T09:00:00Z"
 tags: [Architecture, DDD, TypeScript]
+prerequisites:
+  - TypeScript
+  - SQL
 related:
   - idempotency-in-apis
   - google-cloud-pubsub-how-to-use-it-correctly
   - race-conditions-when-two-requests-buy-the-same-thing
 ---
 
-Audit opens a ticket. The account shows `balance = S/ 5,000`. The question is not the number. It is:
+Audit opens a ticket. The account shows `balance = $5,000`. The question is not the number. It is:
 
-> Why does the account have S/ 5,000?
+> Why does the account have $5,000?
 
 A CRUD model answers where you are. One row, one column, one value. It does not answer how you got there. Deposits, withdrawals, a charge posted by mistake, the order of the operations: if you did not persist them as facts, they are gone. You have logs, if someone configured them, or an operator's memory.
 
@@ -30,7 +33,7 @@ Martin Fowler puts it this way: Event Sourcing ensures that **every change to ap
 
 A **domain event** is a fact that already happened, in the language of the business. It is not `SET balance = 1400`. It is `MoneyDeposited { amount: 1000 }`. It captures intent, not only the result. Microsoft leans on that difference: an event that says "42 seats remain" is a change log with no business meaning. An event that says "two seats were reserved" tells you what happened, and leaves you free to build other views later.
 
-Events are **immutable**. Once appended, they are not edited. If an operation was wrong, there is no `UPDATE` or `DELETE` on the history. There is a new event that compensates the effect. The past stays. You do not erase a ledger with a rubber.
+Events are **immutable**. Once appended, they are not edited. If an operation was wrong, there is no `UPDATE` or `DELETE` on the history. There is a new event that compensates the effect. The past stays. You do not take an eraser to a ledger.
 
 An account sequence can look like this:
 
@@ -75,7 +78,7 @@ id
 balance
 ```
 
-A deposit of S/ 1,000 is `UPDATE accounts SET balance = balance + 1000`. When it commits, the previous value is gone from that row. You keep where you are. Unless you built auditing on the side, you lose which operation changed it, with what intent, in what order, and what the balance was just before.
+A deposit of $1,000 is `UPDATE accounts SET balance = balance + 1000`. When it commits, the previous value is gone from that row. You keep where you are. Unless you built auditing on the side, you lose which operation changed it, with what intent, in what order, and what the balance was just before.
 
 In Event Sourcing, the account is not "saved." It is appended:
 
@@ -113,9 +116,9 @@ version 4 --> MoneyDeposited
 
 Order comes from the stream version, not a wall-clock timestamp. Two concurrent writers that read the same version and try to append the next one collide: the store rejects the second append if the version already moved. The handler reloads, re-evaluates the rules, and retries. That is optimistic concurrency on a log, not an `UPDATE` with a row lock. The same fight of two requests over one exclusive resource shows up here as two appends at the same version; the race itself is covered in [race conditions](/blog/race-conditions-when-two-requests-buy-the-same-thing/).
 
-**Rehydration** is reconstructing the entity by replaying its stream. A "withdraw S/ 300" command does not read `balance` from a table. It loads `account-123`, applies events in order, gets `{ balance: 1400 }`, checks whether the withdrawal is legal, and appends `MoneyWithdrawn`. The in-memory aggregate is derived. The stream is the fact.
+**Rehydration** is reconstructing the entity by replaying its stream. A "withdraw $300" command does not read `balance` from a table. It loads `account-123`, applies events in order, gets `{ balance: 1400 }`, checks whether the withdrawal is legal, and appends `MoneyWithdrawn`. The in-memory aggregate is derived. The stream is the fact.
 
-Replay also answers _when_. The balance after version 2 is S/ 1,000. After version 3, S/ 700. History is not a debug log taped to the side. It is the only material the system can use to rebuild those points.
+Replay also answers _when_. The balance after version 2 is $1,000. After version 3, $700. History is not a debug log taped to the side. It is the only material the system can use to rebuild those points.
 
 AWS describes the same mechanism in its Event Sourcing pattern: a known initial state plus ordered replay produces current state or a point-in-time view. It recommends not always starting from the beginning of time. That is where snapshots come in.
 
@@ -151,7 +154,7 @@ flowchart TD
   eventStore --> analytics[Analytics Projection]
 ```
 
-The UI balance does not have to come from a `reduce` on every GET. A projection can keep `account-123 --> 1400` in a table ready to read. Movement history can be another table. An analytic rollup — deposits per day, withdrawals per channel — another. None of those tables is the source of truth. If one is wrong, delete it and project again from the store.
+The UI balance does not have to come from a `reduce` on every GET. A projection can keep `account-123 → 1400` in a table ready to read. Movement history can be another table. An analytic rollup — deposits per day, withdrawals per channel — another. None of those tables is the source of truth. If one is wrong, delete it and project again from the store.
 
 This is not CQRS yet. It is Fowler's observation that an event-sourced system can keep several working copies with different schemas. The projection is that working copy, kept with eager derivation: it updates when the event arrives, so a read does not walk the log.
 
@@ -207,13 +210,13 @@ The banking example is conceptual. Fowler notes a strong synergy between Event S
 
 ```text
 AccountCreated
-MoneyDeposited       + S/ 2,000
-MoneyWithdrawn       - S/   500
-MoneyDeposited       + S/ 3,000
-MoneyWithdrawn       - S/   100
+MoneyDeposited       + $2,000
+MoneyWithdrawn       - $  500
+MoneyDeposited       + $3,000
+MoneyWithdrawn       - $  100
 ```
 
-Derived state: **S/ 4,400**.
+Derived state: **$4,400**.
 
 Questions a financial system often has to answer, and that a `balance` row does not answer on its own:
 
@@ -224,9 +227,9 @@ Questions a financial system often has to answer, and that a `balance` row does 
 - How do we rebuild the account in a test environment from the same facts?
 - How does someone audit the account without trusting an application log nobody guarantees is complete?
 
-Replay through the second event: S/ 2,000. Through the third: S/ 1,500. The history _is_ the audit, not a sidecar.
+Replay through the second event: $2,000. Through the third: $1,500. The history _is_ the audit, not a sidecar.
 
-Now the S/ 3,000 deposit was a mistake. CRUD invites an `UPDATE`, or deleting a row from a parallel history table. Event Sourcing does not erase the fact. It appends compensation:
+Now the $3,000 deposit was a mistake. CRUD invites an `UPDATE`, or deleting a row from a parallel history table. Event Sourcing does not erase the fact. It appends compensation:
 
 ```text
 MoneyDeposited     amount: 3000
@@ -235,7 +238,7 @@ DepositReversed    amount: 3000
 
 `DELETE` / `UPDATE` rewrite the past. A **compensating event** leaves the error and records the correction. Microsoft uses the same shape for reservations: `ReservationCanceled` does not remove `SeatsReserved`. The stream tells both stories. Greg Young compares it to a ledger: you do not erase in the middle. If you cannot model a correction, ask how accounting would do it.
 
-The balance is S/ 1,400 again. The auditor sees the deposit and the reversal. That is the value of the pattern in this domain. It is not magic, and it is not free: you now have to design `DepositReversed`, make processing it idempotent, and decide how a projection shows reversed movements.
+The balance is $1,400 again. The auditor sees the deposit and the reversal. That is the value of the pattern in this domain. It is not magic, and it is not free: you now have to design `DepositReversed`, make processing it idempotent, and decide how a projection shows reversed movements.
 
 ## Idempotency
 
@@ -288,7 +291,7 @@ Tomorrow the domain needs currency:
 {
   "type": "MoneyDeposited",
   "amount": 1000,
-  "currency": "PEN"
+  "currency": "USD"
 }
 ```
 
@@ -449,13 +452,9 @@ You can have Event Sourcing in a monolith, synchronously, with a single in-memor
 
 ## Conclusion
 
-Event Sourcing persists every change as an immutable event and treats that sequence as the source of truth. Current state — the balance, the cart, the reserved seats — is a projection. The problem it solves is the S/ 5,000 account: not only where we are, but how we got there, with a history you can replay, audit, and project more than one way.
+Event Sourcing earns its cost when the business has to explain how it reached the current state: ledgers, contended reservations, workflows that compensate. Where CRUD describes the current document and nobody asks about the path, the store, the projections, and the versioning are complexity without a return. Apply it to one Bounded Context, not to the user profile or the config flag.
 
-The benefits are real where the domain asks for them: an audit trail that is not an extra, point-in-time reconstruction, compensating events instead of deletes, several read models from one origin, the option to rebuild. The costs are real too: eventual consistency, endless versioning, projections you have to operate, snapshots, idempotency, replay debugging against external systems, and complexity that does not leave — it moves.
-
-Use it when history is part of the business — ledgers, contended reservations, workflows that compensate, domains that have to explain every change. Avoid it when CRUD describes the current document and nobody will ask about the path. Apply it to a Bounded Context, not to the user profile or the config flag.
-
-**An architecture should not be chosen because it is sophisticated. It should be chosen because it answers the domain.** Event Sourcing is a tool. It is not a goal.
+**Choose an architecture because it answers the domain, not because it is sophisticated.**
 
 ## Sources
 

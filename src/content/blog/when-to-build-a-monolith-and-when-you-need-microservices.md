@@ -3,8 +3,9 @@ title: "When to build a monolith, and when you actually need microservices"
 description: "Microservices are not the required upgrade from a monolith. How to choose by domain, team, scale, and operational maturity — and what each choice actually costs."
 publishedAt: "2026-08-17T09:00:00Z"
 updatedAt: "2026-08-17T09:00:00Z"
-tags: [Architecture, Observability]
-minutes: 19
+tags: [Architecture]
+prerequisites:
+  - Web application architecture
 related:
   - trace-id-is-not-transaction-id
   - google-cloud-pubsub-how-to-use-it-correctly
@@ -84,7 +85,7 @@ A function call is not a remote procedure. Remote procedures are slow relative t
 
 **A shared database that became the real API.** Every module reads every table. The schema is a public contract with no versioning and no owner.
 
-**Big Ball of Mud.** Boundaries existed on a whiteboard. In the repo they are comments. Fowler notes that sneaking around a module barrier is a useful tactical shortcut — and that done widely, it trashs productivity.
+**Big Ball of Mud.** Boundaries existed on a whiteboard. In the repo they are comments. Fowler notes that sneaking around a module barrier is a useful tactical shortcut — and that done widely, it trashes productivity.
 
 > The problem is not that the application is monolithic. The problem is that its internal boundaries are wrong, unenforced, or both.
 
@@ -239,38 +240,6 @@ Fowler's strategy, in one line: **start with a modular monolith and extract serv
 What the monolith needs if you want the option to evolve: domains as the primary axis; bounded contexts even if they share a process; hexagonal / Clean Architecture so a module can later become a process; dependency inversion; module boundaries that are enforced. Shopify needed Packwerk because convention was not enough.
 
 Fowler's hedge: do not start with microservices unless the team already has experience running them. Architectures are allowed to change — Vogels revisits the design with every order of magnitude of growth. The named migration pattern is the **Strangler Fig**: add seams, build the new behavior beside the old, route a slice of traffic, repeat. AWS recommends it, including transitional architecture you will later delete. A big-bang rewrite is the last option.
-
-## A decision tree
-
-Use this as a filter, not as a verdict.
-
-```mermaid
-flowchart TD
-  smallApp{"Application small?"}
-  smallTeam{"Team small?"}
-  indepScale{"Independent scale or isolation needed?"}
-  indepTeams{"Independent teams and stable domains?"}
-  cadence{"Different availability or deploy cadence?"}
-  devops{"Mature CI/CD and observability?"}
-  modular["Modular monolith"]
-  extract["Extract the service that has the metric"]
-  wait["Do not split yet"]
-
-  smallApp -->|Yes| smallTeam
-  smallApp -->|No| indepTeams
-  smallTeam -->|Yes| indepScale
-  smallTeam -->|No| indepTeams
-  indepScale -->|No| modular
-  indepScale -->|Yes| devops
-  indepTeams -->|No| modular
-  indepTeams -->|Yes| cadence
-  cadence -->|No| modular
-  cadence -->|Yes| devops
-  devops -->|No| wait
-  devops -->|Yes| extract
-```
-
-If you cannot explain which box produced "extract," you are not extracting. You are decorating.
 
 ## Wrong reasons, real signals
 

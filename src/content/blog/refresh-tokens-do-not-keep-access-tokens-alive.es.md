@@ -2,15 +2,16 @@
 title: "Un refresh token no mantiene vivo un access token: cómo funcionan de verdad las sesiones"
 description: "Por qué un JWT de 30 días es una mala sesión. Cómo access tokens, refresh tokens, rotación y revocación permiten que un usuario siga autenticado limitando la vida de la credencial que viaja con cada petición."
 publishedAt: "2026-08-16T09:00:00Z"
-updatedAt: "2026-08-16T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [Security, Architecture, NestJS]
-minutes: 23
 prerequisites:
   - HTTP
   - JWT
   - REST
 related:
   - cors-rate-limiting-security-headers-nestjs
+  - jwt-vs-api-keys
+  - race-conditions-when-two-requests-buy-the-same-thing
 ---
 
 Un usuario inicia sesión en una app SaaS a las 09:00. Seguirá trabajando a las 17:00. Nadie quiere escribir una contraseña cada quince minutos. Nadie debería publicar un JWT que siga válido durante treinta días.
@@ -75,19 +76,9 @@ Los equipos comprimen «estar autenticado» en un solo bloque y luego discuten e
 | Revocación    | Marcar un token, una familia o cada sesión como inutilizable antes de la expiración            |
 | Logout        | Terminar la sesión. Logout local limpia el cliente. Logout en el servidor revoca lo que emitió |
 
-**Autenticación** ocurre en el login — y otra vez si haces step-up para una acción sensible. Es un evento.
-
 **Sesión** es el periodo después de ese evento durante el cual el sistema todavía confía en el usuario. En una app clásica con cookie la sesión es una fila (o una cookie firmada) que el servidor puede borrar. En un diseño access-plus-refresh la sesión suele ser el registro del refresh token: valor hasheado, expiración, familia, bandera de revocación, dispositivo.
 
-**Access token** responde «¿puede proceder esta petición ahora mismo?» Se presenta a menudo. Debe ser corto.
-
-**Refresh token** responde «¿puede este cliente obtener un access token nuevo sin contraseña?» Se presenta rara vez. Debe estar mejor protegido, y el servidor debe poder decir que no.
-
 **Expiración** es un reloj. No es revocación. Un token expirado es inválido. Un token revocado puede seguir sin expirar.
-
-**Rotación** es cómo un refresh token de larga vida deja de ser un único secreto estático. Cada uso emite un sucesor y mata al predecesor.
-
-**Revocación** es cómo terminas una sesión a propósito: logout, cambio de contraseña, sospecha de robo, bloqueo de admin.
 
 **Logout** no es «borrar `localStorage`». Eso es limpieza local. Si el refresh token sigue verificando en el servidor, la sesión sigue viva en otra pestaña, otro dispositivo o en el replay de un atacante.
 
@@ -256,7 +247,7 @@ Este endpoint no es «login otra vez». Es «demuestra que todavía tienes el se
 El backend debería:
 
 1. recibir el refresh token (body, cookie, o ambos — elige un modelo y cúmplelo).
-2. localizar su representación en el servidor (búsqueda por hash, o `jti` --> fila).
+2. localizar su representación en el servidor (búsqueda por hash, o `jti` → fila).
 3. validar integridad (aleatoriedad + hash, o firma).
 4. comprobar expiración.
 5. comprobar revocación.
@@ -338,7 +329,7 @@ Las cookies no eliminan XSS. Cambian lo que XSS puede robar. Un script inyectado
 Una división habitual para una first-party web app:
 
 - access token en memory, enviado como `Authorization: Bearer`.
-- refresh token en una cookie HttpOnly, Secure, SameSite con alcance a `/auth/refresh`.
+- refresh token en una cookie HttpOnly, Secure, SameSite con `Path=/auth`, para que solo refresh y logout la reciban.
 
 El access token sigue apareciendo en JS (lo pones en la cabecera). El secreto de larga vida no. Las SPAs cross-origin entonces necesitan CORS con credenciales, disciplina de `Domain`/`Path` de la cookie, y una estrategia de CSRF. Las apps del mismo origin tienen un modelo de cookies más fácil.
 
@@ -403,26 +394,6 @@ Este es el modelo general, no una ley.
 
 Un access token puede ser un JWT o un handle opaco. Un refresh token puede rotarse o ser vinculado al emisor. La tabla describe la división habitual: access tokens cortos, presentados con frecuencia, difíciles de revocar, más refresh tokens largos, presentados rara vez, rastreados en el servidor.
 
-## Los refresh tokens no hacen seguro el diseño
-
-Cambian la vida de la credencial en el camino crítico. Todo lo demás sigue siendo tu trabajo:
-
-- almacenamiento que encaje con XSS y CSRF.
-- HTTPS en cada salto que vea un token.
-- rotación de refresh tokens para clientes públicos.
-- revocación que de verdad puedas ejecutar.
-- detección de reutilización cuando la rotación es el control.
-- expiración en **ambos** tokens — un refresh token sin `exp` es una sesión permanente.
-- un registro de sesión, no solo un blob firmado.
-- secretos y signing keys que roten.
-- validación JWT que compruebe alg, firma, `exp` e `iss`/`aud` cuando los uses.
-
-Sáltate el almacén y tienes un JWT de larga vida con pasos extra. Sáltate HTTPS y el par es visible en la red. Sáltate la rotación y un refresh token robado es una llave duradera. Sáltate CSRF en cookies y una página externa puede hacer refresh por el usuario. El par es un patrón. No es un control.
-
-## 09:00, y el usuario nunca lo ve
-
-Un access token de diez minutos en una app SaaS: login a las 09:00, `GET /invoices` a las 09:04 devuelve 200, Exportar a las 09:05 recibe 401, el interceptor ejecuta `POST /auth/refresh`, el backend rota, el reintento devuelve 200. El usuario hizo clic en un botón. El producto no pide una contraseña. **La sesión puede continuar mientras las credenciales de acceso siguen siendo de corta vida.** Si el refresh falla — familia revocada, refresh token expirado, token reutilizado — el mismo interceptor limpia la sesión y muestra el login.
-
 ## Un bosquejo de NestJS, después de la arquitectura
 
 NestJS puede implementar esto. No lo inventa. [Authentication](https://docs.nestjs.com/security/authentication) y la [receta de Passport JWT](https://docs.nestjs.com/recipes/passport) cubren firmar un access token y proteger rutas. No implementan rotación de refresh por ti. La tabla de sesión es tu diseño.
@@ -475,35 +446,47 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 }
 ```
 
-Refresh es una ruta dedicada. Hashea el token entrante, carga la fila, luego decide.
+Refresh es una ruta dedicada. Lee el refresh token de la cookie HttpOnly (con `cookie-parser` registrado), lo hashea, carga la fila y luego decide.
 
 ```ts
-@Post('refresh')
-async refresh(@Body('refreshToken') token: string) {
-  const session = await this.sessions.findByHash(sha256(token));
+const REFRESH_COOKIE = { httpOnly: true, secure: true, sameSite: "strict", path: "/auth" } as const;
 
-  if (!session || session.revokedAt || session.expiresAt < new Date()) {
-    throw new UnauthorizedException();
-  }
+@Post("refresh")
+async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  const token = req.cookies?.refresh_token;
+  const session = token && (await this.sessions.findByHash(sha256(token)));
+  if (!session) throw new UnauthorizedException();
 
+  // La reutilización va primero: un token ya rotado que vuelve a aparecer es señal de robo, no un 401 más.
   if (session.replacedByHash) {
     await this.sessions.revokeFamily(session.familyId);
     throw new UnauthorizedException();
   }
 
-  const next = await this.sessions.rotate(session);
-  return this.issuePair(session.userId, next);
+  if (session.revokedAt || session.expiresAt < new Date()) {
+    throw new UnauthorizedException();
+  }
+
+  // Claim condicional: UPDATE ... WHERE id = $1 AND replaced_by_hash IS NULL
+  const next = await this.sessions.rotate(session.id);
+  if (!next) throw new UnauthorizedException();
+
+  res.cookie("refresh_token", next.refreshToken, REFRESH_COOKIE);
+  return { accessToken: await this.issueAccessToken(session.userId) };
 }
 ```
 
-`replacedByHash` (o un `usedAt` más el hash retenido) es la señal de reutilización. El primer refresh marca la fila antigua como usada e inserta el sucesor. Una segunda presentación del valor antiguo revoca la familia.
+`replacedByHash` (o un `usedAt` más el hash retenido) es la señal de reutilización, por eso se revisa **antes** que `revokedAt`: si la rotación también marcó la fila como revocada, revisar primero la revocación respondería a un robo con un simple 401 y dejaría viva la familia. `rotate` tiene que ser un update condicional: dos refresh concurrentes con el mismo token no pueden ganar ambos; solo un update puede fijar `replacedByHash`. Es el mismo problema check-then-act de [race conditions](/blog/race-conditions-when-two-requests-buy-the-same-thing/). El perdedor recibe un 401, no una revocación de familia: es el caso de single-flight, no un robo.
 
 Logout es la misma tabla:
 
 ```ts
-@Post('logout')
-async logout(@Body('refreshToken') token: string) {
-  await this.sessions.revokeByHash(sha256(token));
+@Post("logout")
+@HttpCode(204)
+async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  const token = req.cookies?.refresh_token;
+  if (token) await this.sessions.revokeByHash(sha256(token));
+  res.clearCookie("refresh_token", REFRESH_COOKIE);
 }
 ```
 
@@ -535,7 +518,7 @@ flowchart TD
 
 **Navegador** — el endpoint TLS en el que el usuario confía. Nada de tokens en URLs, nada de tokens en fragmentos que loguees.
 
-**Frontend** — es dueño del cliente HTTP, el refresh single-flight, el reintento y la redirección al login. No inventa seguridad escondiendo un token en un módulo de Vuex.
+**Frontend** — es dueño del cliente HTTP, el refresh single-flight, el reintento y la redirección al login. No inventa seguridad escondiendo un token en un store de estado.
 
 **Access token** — se presenta a la API en rutas de negocio. TTL corto. Validado en local (JWT) o por introspection.
 

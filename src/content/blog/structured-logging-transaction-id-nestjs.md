@@ -2,9 +2,8 @@
 title: "Structured logging in NestJS: follow a failed request with transactionId"
 description: "How to implement structured logs in NestJS with Pino so a payment is searchable by transactionId — the same identity the companion article separates from traceId."
 publishedAt: "2026-04-13T09:00:00Z"
-updatedAt: "2026-04-13T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [NestJS, Observability, Logging]
-minutes: 25
 prerequisites:
   - NestJS
   - TypeScript
@@ -27,21 +26,7 @@ The job is not to stamp a UUID onto a string and call it correlation. The job is
 
 A monolith fails in one process. You open one file. A checkout in 2026 fails across processes you cannot attach to at the same time.
 
-```mermaid
-flowchart TD
-    frontend[Frontend]
-    gateway[API Gateway]
-    orders[Orders Service]
-    payment[Payment Service]
-    notification[Notification Service]
-
-    frontend --> gateway
-    gateway --> orders
-    orders --> payment
-    payment --> notification
-```
-
-Each box writes to its own stdout. Cloud Run collects those streams independently. If the only shared fact is "around 03:04 UTC", you are aligning clocks and hoping the next request did not land in the same second.
+Gateway, Orders, Payment, and Notifications each write to their own stdout. Cloud Run collects those streams independently. If the only shared fact is "around 03:04 UTC", you are aligning clocks and hoping the next request did not land in the same second.
 
 Unstructured lines make that worse:
 
@@ -64,13 +49,7 @@ You need a field that is equal across every hop of **this payment**. Then the in
 
 Structured logging means each line is one **event** with a stable shape: a level, a message, and fields you will query. JSON is the usual encoding. JSON is not the strategy.
 
-This is a string that happens to mention an order:
-
-```ts
-console.log("Payment failed for order 123");
-```
-
-This is an event:
+The `console.log` above is a string that happens to mention an order. This is an event:
 
 ```json
 {
@@ -96,16 +75,6 @@ A useful event has four kinds of data:
 Keep event names boring and consistent: `order.created`, `payment.started`, `payment.failed`. Treat them like API paths. If every service invents its own vocabulary, you are back to folklore with extra braces.
 
 Dumping an object as JSON is not structured logging. `logger.info({ req }, "request")` is a structured leak. Designing the fields is the work.
-
-## These identifiers are not interchangeable
-
-The [companion article](/blog/trace-id-is-not-transaction-id/) defines the jobs. This page only needs enough to keep NestJS from collapsing them:
-
-- **`transactionId`** — the payment. Survives retries and a worker that opens a second `traceId`. This is the join key you implement below.
-- **`applicationId`** — which service wrote the line. Written locally. Not a request identity.
-- **`requestId`** — one inbound hop. Useful on an access log. Dead the moment the next service mints a new UUID.
-- **`correlationId`** — a house header. Fine before `TX-98431` exists. Not a `transactionId`. Not a substitute for `traceparent`.
-- **`traceId` / `spanId`** — one execution and one step. Carry them in parallel via W3C Trace Context. Do not replace `transactionId` with them.
 
 ## A context you can actually run
 
@@ -156,38 +125,6 @@ A log line from Payment should look like this — fields, not a paragraph:
 
 Same `transactionId` in Orders, Payment, and the worker. Different `applicationId` on each line. A later retry may carry a different `traceId`. You still find the payment.
 
-## A checkout that fails in Payment
-
-The user clicks Pay. The browser calls the gateway. The gateway calls Orders. Orders creates the order, then calls Payment. Payment calls the provider. The card is declined. Orders records the failure and publishes `order.payment_failed`. The notification worker should tell the user.
-
-```text
-Orders Service
-transactionId=TX-98431
-event=order.created
-
-Payment Service
-transactionId=TX-98431
-event=payment.started
-
-Payment Service
-transactionId=TX-98431
-event=payment.failed
-errorCode=card_declined
-
-Orders Service
-transactionId=TX-98431
-event=order.payment_failed
-
-Notification Worker
-transactionId=TX-98431
-traceId=def789
-event=notification.payment_failed.sent
-```
-
-Five lines, three processes, one business field. The worker may have opened a second trace — the companion article's diagram. You still search `transactionId="TX-98431"` and read the story in order.
-
-Without that field you search `textPayload:"payment"` around 03:04 and get every decline in the region. The next checkout is in the same window. You pick the wrong charge. You page the wrong owner.
-
 ## Implementation: NestJS, Pino, and a context you do not thread by hand
 
 The stack is boring on purpose: NestJS, TypeScript, [Pino](https://github.com/pinojs/pino), [`nestjs-pino`](https://github.com/iamolegga/nestjs-pino), and Node's [`AsyncLocalStorage`](https://nodejs.org/api/async_context.html).
@@ -235,12 +172,14 @@ function resolveRequestId(req: IncomingMessage): string {
           paths: [
             "req.headers.authorization",
             "req.headers.cookie",
+            'res.headers["set-cookie"]',
             'req.headers["x-api-key"]',
             "req.body.password",
             "req.body.accessToken",
             "req.body.refreshToken",
             "req.body.cvv",
             "req.body.cardNumber",
+            "*.secret",
           ],
           censor: "[Redacted]",
         },
@@ -459,17 +398,7 @@ Wrap those the same way: read `getTransactionId()`, set the header, or refuse to
 
 HTTP headers die at the response. The notification email is sent by a worker that was not on the socket.
 
-```mermaid
-flowchart TD
-    orders["Order Service"]
-    payment["Payment Worker"]
-    notification["Notification Worker"]
-
-    orders -->|Pub/Sub| payment
-    payment --> notification
-```
-
-[Pub/Sub messages](https://cloud.google.com/pubsub/docs/publisher) have `data` and optional **attributes**: string key-value pairs, at most 100, keys ≤ 256 bytes, values ≤ 1024 bytes. Google documents attributes for metadata such as timestamps and **transaction ids**. That is the transport.
+[Pub/Sub messages](https://docs.cloud.google.com/pubsub/docs/publisher) have `data` and optional **attributes**: string key-value pairs, at most 100, keys ≤ 256 bytes, values ≤ 1024 bytes. Google documents attributes for metadata such as timestamps and **transaction ids**. That is the transport.
 
 ```ts
 import { PubSub } from "@google-cloud/pubsub";
@@ -507,32 +436,32 @@ Prefer attributes over stuffing a `metadata` object into `data`:
 
 Attributes are filterable on the subscription. They survive a change to the payload schema. They stay out of the business document. A nested `metadata` block inside `data` works if every consumer remembers to look there. The next schema, the next language, and the next intern will not.
 
-The worker must restore the store **before** it logs or publishes again. A push subscription is an HTTP request: copy `attributes.transactionId` onto `x-transaction-id` and let the middleware bind it. A pull worker has no `pino-http` child. Bind the fields yourself:
+The worker must restore the store **before** it logs or publishes again. A push subscription is an HTTP request: copy `attributes.transactionId` onto `x-transaction-id` and let the middleware bind it. A pull worker has no `pino-http` child, and `PinoLogger.assign()` throws outside a request (`unable to assign extra fields out of request scope`). Build a child logger with the fields instead:
 
 ```ts
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { PinoLogger } from "nestjs-pino";
 import { isTransactionId, requestAls, SERVICE_NAME } from "./request-context";
 import { randomUUID } from "node:crypto";
 
 @Injectable()
 export class NotificationWorker {
-  private readonly logger = new Logger(NotificationWorker.name);
-
   constructor(private readonly pino: PinoLogger) {}
 
   async handle(message: { attributes: Record<string, string>; data: Buffer }) {
     const incoming = message.attributes.transactionId;
     if (!incoming || !isTransactionId(incoming)) {
-      this.logger.error({ event: "notification.orphaned" }, "Message missing transactionId");
+      this.pino.error({ event: "notification.orphaned" }, "Message missing transactionId");
       return;
     }
+
+    const logger = this.pino.logger.child({ transactionId: incoming, applicationId: SERVICE_NAME });
 
     await requestAls.run(
       { requestId: randomUUID(), applicationId: SERVICE_NAME, transactionId: incoming },
       async () => {
-        this.pino.assign({ transactionId: incoming, applicationId: SERVICE_NAME });
-        this.logger.log({ event: "notification.started" }, "Sending payment-failed email");
+        logger.info({ event: "notification.started" }, "Sending payment-failed email");
+        // pass `logger` down, or publish with getTransactionId() as before
       },
     );
   }
@@ -558,25 +487,13 @@ Do not expect ALS to survive a publish. Do not expect `traceparent` to survive a
 
 Put Orders, Payment, and Notifications on Cloud Run and the platform will do exactly what it promises: collect stdout from each service into Cloud Logging, tagged with that service's resource. It will not notice that the three streams are one purchase.
 
-```mermaid
-flowchart TD
-    client["Client"]
-    orders["Cloud Run<br/>orders-api"]
-    payment["Cloud Run<br/>payment-api"]
-    notification["Cloud Run<br/>notification-api"]
-
-    client --> orders
-    orders --> payment
-    payment --> notification
-```
-
 Without a shared field you open three services in Logs Explorer and scroll. With `transactionId` on every JSON line, one query rebuilds the purchase — including the worker that ran later:
 
 ```text
 jsonPayload.transactionId="TX-98431"
 ```
 
-[Cloud Run logging](https://cloud.google.com/run/docs/logging) parses each stdout line. A JSON object becomes `jsonPayload`. A plain string becomes `textPayload`. `textPayload` is what you get from `console.log("Payment failed")`. You will search it with substrings until you stop.
+[Cloud Run logging](https://docs.cloud.google.com/run/docs/logging) parses each stdout line. A JSON object becomes `jsonPayload`. A plain string becomes `textPayload`. `textPayload` is what you get from `console.log("Payment failed")`. You will search it with substrings until you stop.
 
 Cloud Logging also lifts **special fields** out of the JSON onto the `LogEntry`. The ones that matter here:
 
@@ -611,15 +528,15 @@ const SEVERITY: Record<string, string> = {
 }
 ```
 
-Cloud Run's own sample still reads `X-Cloud-Trace-Context` and writes `logging.googleapis.com/trace` as `projects/PROJECT_ID/traces/TRACE_ID`. Prefer `traceparent` when it is present — Cloud Run sets it on inbound service requests — and keep the legacy header as fallback. Add that to `customProps`:
+Cloud Run's own sample still reads `X-Cloud-Trace-Context` and writes `logging.googleapis.com/trace` as `projects/PROJECT_ID/traces/TRACE_ID`; the [LogEntry reference](https://docs.cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry) now recommends the raw `TRACE_ID` and keeps the resource name only for compatibility. Prefer `traceparent` when it is present — Cloud Run sets it on inbound service requests — and keep the legacy header as fallback. Add that to `customProps`:
 
 ```ts
-function cloudTrace(req: IncomingMessage, projectId: string): Record<string, string> {
+function cloudTrace(req: IncomingMessage): Record<string, string> {
   const traceparent = headerValue(req.headers.traceparent);
   const w3c = traceparent?.split("-");
   if (w3c?.[0] === "00" && w3c[1] && w3c[1] !== "0".repeat(32)) {
     return {
-      "logging.googleapis.com/trace": `projects/${projectId}/traces/${w3c[1]}`,
+      "logging.googleapis.com/trace": w3c[1],
       "logging.googleapis.com/spanId": w3c[2] ?? "",
     };
   }
@@ -628,7 +545,7 @@ function cloudTrace(req: IncomingMessage, projectId: string): Record<string, str
   const traceId = legacy?.split("/")[0];
   if (traceId) {
     return {
-      "logging.googleapis.com/trace": `projects/${projectId}/traces/${traceId}`,
+      "logging.googleapis.com/trace": traceId,
     };
   }
 
@@ -660,26 +577,9 @@ This line is how those values escape:
 this.logger.log({ req }, "incoming request");
 ```
 
-`pino-http` already serializes a request object onto the access log. That object includes headers. If you also pass `req` or `req.body` from a handler, you get the body, the bearer token, and whatever the client posted as `cvv`. `redact` is a safety net, not a license.
+`pino-http` already serializes a request object onto the access log. That object includes headers. If you also pass `req` or `req.body` from a handler, you get the body, the bearer token, and whatever the client posted as `cvv`. `redact` is a safety net, not a license. The list in the `LoggerModule` config above is that net; extend it as new secret-bearing fields appear.
 
-Pino redacts **paths you list**, at serialization time, using [`fast-redact`](https://github.com/pinojs/pino/blob/main/docs/redaction.md). Paths are case-sensitive. Hyphenated headers need bracket notation. Wildcards exist (`req.headers["x-api-key"]`, `users[*].password`). User input must never define those paths — the library evaluates them in a VM.
-
-```ts
-redact: {
-  paths: [
-    "req.headers.authorization",
-    "req.headers.cookie",
-    'res.headers["set-cookie"]',
-    "req.body.password",
-    "req.body.accessToken",
-    "req.body.refreshToken",
-    "req.body.cvv",
-    "req.body.cardNumber",
-    "*.secret",
-  ],
-  censor: "[Redacted]",
-}
-```
+Pino redacts **paths you list**, at serialization time, using [`fast-redact`](https://github.com/pinojs/pino/blob/main/docs/redaction.md). Paths are case-sensitive. Hyphenated headers need bracket notation. Wildcards exist (`*.secret`, `users[*].password`). User input must never define those paths — the library evaluates them in a VM.
 
 Defense in layers:
 
@@ -719,37 +619,6 @@ Even that `info` on every 200 will dominate a high-QPS service. Ignore health. S
 
 Do not log `error` for a 404 the client caused, or `info` for a declined card you already handle. A decline is a business outcome: `warn` or `info` with `event=payment.failed` is enough unless the provider call itself threw.
 
-## Bad logging vs good logging
-
-```ts
-console.log("Error processing payment");
-console.log(order);
-console.log(req);
-```
-
-Three lines, no event name, no join key, a full order object (customer, card hints, whatever the ORM loaded), and the request (Authorization, cookies, body). You cannot filter them. You cannot prove they are the same checkout. You may have just written a PAN to a bucket with a 30-day retention.
-
-```ts
-this.logger.error(
-  {
-    event: "payment.failed",
-    paymentProvider,
-    errorCode,
-  },
-  "Payment processing failed",
-);
-```
-
-One event. Fields you will query. A sentence for the timeline. `transactionId` and `applicationId` already bound. Nothing in `order` or `req` that you did not choose.
-
-The second form is slower to type the first time and faster every time you are on call.
-
-## transactionId is not a traceId
-
-That is the same split as the [companion article](/blog/trace-id-is-not-transaction-id/). A `transactionId` lists every log line for the payment, including a worker that ran later under a new `traceId`. It does not give you a parent/child graph, per-hop latency, or a sampling decision.
-
-You still want `transactionId` when a hop does not speak `traceparent`, when a worker starts a new trace, when support needs a ticket id, when the trace was not sampled, or when finance asks about the charge next week. Do not present `x-transaction-id` as cheaper OpenTelemetry. Do not present `x-correlation-id` as a `transactionId`.
-
 ## 3:00 AM — a payment failed
 
 A customer writes: the card was charged, or was not, and the app showed an error. They include `TX-98431` from the receipt, or you find `x-transaction-id` on the response.
@@ -768,56 +637,21 @@ A customer writes: the card was charged, or was not, and the app showed an error
 
 That walk is the reason the rest of the article exists. MTTR is the time to the field, not the time to the theory.
 
-## Architecture worth copying
+## Recommended shape for a NestJS service
 
-```mermaid
-flowchart TD
-  Client --> Gateway[API Gateway]
-  Gateway --> Orders[Orders API]
-  Orders --> Payment[Payment API]
-  Payment --> Provider[Payment Provider]
-  Orders --> Topic[Pub/Sub]
-  Topic --> Notify[Notification Worker]
-```
-
-`transactionId` is minted in Orders and copied onto every arrow after that: HTTP header on Orders → Payment → Provider (if the provider allows custom headers), Pub/Sub attributes on Orders → Worker.
-
-`applicationId` is written by each box. It changes. That is how you see who spoke.
-
-`traceId` follows the synchronous HTTP path when OpenTelemetry or Cloud Run's `traceparent` is in play. The worker may start a new trace. `TX-98431` does not change.
-
-Recommended shape for a NestJS service:
+`transactionId` is minted in Orders and copied onto every arrow after that; `applicationId` is written by each box; `traceId` follows the synchronous HTTP path and may restart in the worker. In code, that is seven pieces:
 
 1. `LoggerModule.forRoot` once. `genReqId` for the hop, `customProps` for `applicationId`, `redact`, health ignore.
 2. `RequestContextMiddleware` enters `AsyncLocalStorage` and binds inbound `x-transaction-id`.
 3. Controllers `assign({ transactionId })` when the business record is created.
 4. `OutboundTransactionInterceptor` on `HttpService.axiosRef`.
 5. Publishers copy `getTransactionId()` into message attributes.
-6. Consumers call `requestAls.run` with the same `transactionId` before they log or publish.
+6. Consumers enter `requestAls.run` with the same `transactionId` and log through a child logger before they log or publish.
 7. Optional: OpenTelemetry SDK. Same store, `traceparent` on a different header.
-
-## Checklist
-
-- Structured logs: one JSON event per line, stable field names
-- `transactionId` on every business event, assigned once, never reinvented
-- Context propagation: ALS in-process, not method parameters
-- Redaction: secrets stripped at the logger
-- Log levels: production is not `debug`
-- Consistent events: `order.created`, not free prose
-- Useful metadata: `errorCode`, `applicationId`
-- No secrets, tokens, cookies, PAN, CVV
-- HTTP propagation: `x-transaction-id` once the record exists
-- Async propagation: Pub/Sub attributes and job metadata carry `transactionId`
-- `traceparent` when distributed tracing is on; not a substitute for `transactionId`
-- Retention long enough to finish an incident
 
 ## The request has to remain reconstructable
 
-A production failure is a path. Structured logging makes each step a row. `transactionId` makes those rows one result set — including the worker that opened a second `traceId`. Redaction keeps the result set from becoming a breach. Levels keep it from becoming noise.
-
-Put a UUID in `x-request-id` if you want. That is the hop. The design is the business context: who mints `TX-98431`, who refuses a bad one, who copies it onto the next hop, and which fields you are willing to store for a month.
-
-When that is in place, "what happened to this payment?" is a filter. Until it is, you are still aligning timestamps. The identifiers themselves are in the [companion article](/blog/trace-id-is-not-transaction-id/). This page is how they get into NestJS.
+A production failure is a path. Structured logging makes each step a row; `transactionId` makes those rows one result set, including the worker that opened a second `traceId`. Redaction keeps that result set from becoming a breach. Levels keep it from becoming noise. When that is in place, "what happened to this payment?" is a filter, not a timestamp hunt.
 
 ## Sources
 
@@ -832,13 +666,13 @@ When that is in place, "what happened to this payment?" is a filter. Until it is
 - [pino-http](https://github.com/pinojs/pino-http) — `genReqId`, `customProps`, `autoLogging`, `customLogLevel`
 - Node.js, [`crypto.randomUUID`](https://nodejs.org/api/crypto.html#cryptorandomuuidoptions)
 - Node.js, [AsyncLocalStorage](https://nodejs.org/api/async_context.html#class-asynclocalstorage)
-- Google Cloud, [Structured logging](https://cloud.google.com/logging/docs/structured-logging) — special JSON fields
-- Google Cloud, [Logging and viewing logs in Cloud Run](https://cloud.google.com/run/docs/logging) — stdout JSON, `X-Cloud-Trace-Context` sample
-- Google Cloud, [Using distributed tracing — Cloud Run](https://cloud.google.com/run/docs/trace)
-- Google Cloud, [Trace context — Cloud Trace](https://cloud.google.com/trace/docs/trace-context) — `traceparent` and `X-Cloud-Trace-Context`
-- Google Cloud, [LogEntry](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry) — `trace`, `spanId`, `traceSampled`
-- Google Cloud, [Publish messages](https://cloud.google.com/pubsub/docs/publisher) — attributes as metadata
-- Google Cloud, [PubsubMessage](https://cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage)
+- Google Cloud, [Structured logging](https://docs.cloud.google.com/logging/docs/structured-logging) — special JSON fields
+- Google Cloud, [Logging and viewing logs in Cloud Run](https://docs.cloud.google.com/run/docs/logging) — stdout JSON, `X-Cloud-Trace-Context` sample
+- Google Cloud, [Using distributed tracing — Cloud Run](https://docs.cloud.google.com/run/docs/trace)
+- Google Cloud, [Trace context — Cloud Trace](https://docs.cloud.google.com/trace/docs/trace-context) — `traceparent` and `X-Cloud-Trace-Context`
+- Google Cloud, [LogEntry](https://docs.cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry) — `trace`, `spanId`, `traceSampled`
+- Google Cloud, [Publish messages](https://docs.cloud.google.com/pubsub/docs/publisher) — attributes as metadata
+- Google Cloud, [PubsubMessage](https://docs.cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage)
 - OpenTelemetry, [Logs](https://opentelemetry.io/docs/concepts/signals/logs/)
 - OpenTelemetry, [Traces](https://opentelemetry.io/docs/concepts/signals/traces/)
 - OpenTelemetry, [Context propagation](https://opentelemetry.io/docs/concepts/context-propagation/)

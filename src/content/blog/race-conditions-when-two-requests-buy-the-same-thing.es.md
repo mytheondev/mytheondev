@@ -2,9 +2,8 @@
 title: "Race conditions: cuando dos peticiones intentan comprar lo mismo"
 description: "Un flujo check-then-act puede vender la misma butaca dos veces. Cómo los updates atómicos, las constraints, el locking y las idempotency keys mantienen consistentes los recursos exclusivos bajo concurrencia."
 publishedAt: "2026-08-22T09:00:00Z"
-updatedAt: "2026-08-22T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [Architecture, Databases, API]
-minutes: 17
 prerequisites:
   - SQL
   - HTTP
@@ -327,7 +326,7 @@ POST /orders
 Idempotency-Key: 7b8f0c2a-3d91-4e1e-9c4a-12ab34cd56ef
 ```
 
-Ese header no es un estándar HTTP. Es un [Internet-Draft de IETF HTTPAPI](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header) y el header que [documenta Stripe](https://docs.stripe.com/api/idempotent_requests) para reintentos seguros: guarda la primera respuesta de esa key, reprodúcela en peticiones posteriores con la misma key, y no apliques el side effect dos veces.
+Ese header no es un estándar HTTP. Fue un [Internet-Draft de IETF HTTPAPI](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/) que expiró sin llegar a RFC, y es el header que [documenta Stripe](https://docs.stripe.com/api/idempotent_requests) para reintentos seguros: guarda la primera respuesta de esa key, reprodúcela en peticiones posteriores con la misma key, y no apliques el side effect dos veces.
 
 El locking responde «quién puede cambiar F12 ahora». La idempotencia responde «¿es esta la misma operación que ya acepté?». Un segundo usuario con otra key debería seguir perdiendo la butaca. Un retry con la **misma** key debería devolver el hold original, no un 409 contra ti mismo.
 
@@ -392,7 +391,7 @@ Si más de un cliente puede cambiar el mismo estado, la concurrencia no es un ed
 - PostgreSQL, [11.6. Unique Indexes](https://www.postgresql.org/docs/current/indexes-unique.html) — los unique indexes hacen cumplir `UNIQUE` y las primary keys
 - PostgreSQL, [UPDATE](https://www.postgresql.org/docs/current/sql-update.html) — `UPDATE` como un solo comando con search condition
 - IETF, [RFC 9110 — HTTP Semantics](https://www.rfc-editor.org/rfc/rfc9110) — §9.2.2 métodos idempotentes (`POST` no lo es); §15.5.10 `409 Conflict`; §15.5.13 `412 Precondition Failed`
-- IETF HTTPAPI, [The Idempotency-Key HTTP Header Field](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header) — Internet-Draft, no un RFC
+- IETF HTTPAPI, [The Idempotency-Key HTTP Header Field](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header) — Internet-Draft expirado, nunca publicado como RFC
 - Stripe, [Idempotent requests](https://docs.stripe.com/api/idempotent_requests) — `Idempotency-Key` como contrato documentado de retry
 - Redis, [SET](https://redis.io/docs/latest/commands/set/) — `NX` más expiry como acquire atómico del lock
 - Redis, [Distributed locks](https://redis.io/docs/latest/develop/clients/patterns/distributed-locks/) — token al soltar; expiry mientras el trabajo sigue; violación de safety con replicación asíncrona

@@ -3,8 +3,9 @@ title: "Cuándo construir un monolito, y cuándo de verdad necesitas microservic
 description: "Los microservicios no son la evolución obligatoria de un monolito. Cómo elegir según dominio, equipo, escala y madurez operativa — y qué cuesta realmente cada opción."
 publishedAt: "2026-08-17T09:00:00Z"
 updatedAt: "2026-08-17T09:00:00Z"
-tags: [Architecture, Observability]
-minutes: 20
+tags: [Architecture]
+prerequisites:
+  - Arquitectura de aplicaciones web
 related:
   - trace-id-is-not-transaction-id
   - google-cloud-pubsub-how-to-use-it-correctly
@@ -239,38 +240,6 @@ La estrategia de Fowler, en una línea: **empieza con un monolito modular y extr
 Lo que el monolito necesita si quieres la opción de evolucionar: dominios como eje primario; bounded contexts aunque compartan proceso; hexagonal / Clean Architecture para que un módulo pueda convertirse después en proceso; inversión de dependencias; límites de módulo que se imponen. Shopify necesitó Packwerk porque la convención no era suficiente.
 
 La cobertura de Fowler: no empieces con microservicios a menos que el equipo ya tenga experiencia operándolos. Las arquitecturas pueden cambiar — Vogels revisa el diseño con cada orden de magnitud de crecimiento. El patrón de migración con nombre es el **Strangler Fig**: añade costuras, construye el nuevo comportamiento junto al viejo, redirige una porción del tráfico, repite. AWS lo recomienda, incluyendo arquitectura de transición que después borrarás. Una reescritura big-bang es la última opción.
-
-## Un árbol de decisión
-
-Usa esto como un filtro, no como un veredicto.
-
-```mermaid
-flowchart TD
-  smallApp{"Application small?"}
-  smallTeam{"Team small?"}
-  indepScale{"Independent scale or isolation needed?"}
-  indepTeams{"Independent teams and stable domains?"}
-  cadence{"Different availability or deploy cadence?"}
-  devops{"Mature CI/CD and observability?"}
-  modular["Modular monolith"]
-  extract["Extract the service that has the metric"]
-  wait["Do not split yet"]
-
-  smallApp -->|Yes| smallTeam
-  smallApp -->|No| indepTeams
-  smallTeam -->|Yes| indepScale
-  smallTeam -->|No| indepTeams
-  indepScale -->|No| modular
-  indepScale -->|Yes| devops
-  indepTeams -->|No| modular
-  indepTeams -->|Yes| cadence
-  cadence -->|No| modular
-  cadence -->|Yes| devops
-  devops -->|No| wait
-  devops -->|Yes| extract
-```
-
-Si no puedes explicar qué caja produjo «extraer», no estás extrayendo. Estás decorando.
 
 ## Razones equivocadas, señales reales
 

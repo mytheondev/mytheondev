@@ -2,11 +2,14 @@
 title: "Un traceId no es un transactionId: seguir una petición a través de microservicios"
 description: "Tener logs no es tener observability. Cómo transactionId, traceId y W3C Trace Context permiten reconstruir una petición a través de servicios — en Cloud Run, AWS y Azure."
 publishedAt: "2026-08-15T09:00:00Z"
-updatedAt: "2026-08-15T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [Observability, Architecture, GCP]
-minutes: 16
+prerequisites:
+  - HTTP
+  - Microservicios
 related:
   - structured-logging-transaction-id-nestjs
+  - when-to-build-a-monolith-and-when-you-need-microservices
 ---
 
 El pago se procesó. El correo de confirmación nunca llegó. Tres servicios escribieron "done" o "failed" en tres buckets de logs distintos, y nadie puede demostrar que la misma petición de usuario produjo las tres líneas.
@@ -127,7 +130,7 @@ Ahora el proveedor da timeout.
 ```mermaid
 flowchart TD
   SystemA[Sistema A] --> SystemB[Sistema B]
-  SystemB --> SystemC[Sistema C]
+  SystemA --> SystemC[Sistema C]
   SystemC --> Notify[API de Notificación]
   Notify --> Timeout[timeout]
 ```
@@ -243,7 +246,7 @@ Los campos JSON especiales que Cloud Logging eleva al `LogEntry` son los que rea
 
 El valor preferido para `trace` es el `TRACE_ID` raw. El nombre de recurso `projects/PROJECT_ID/traces/TRACE_ID` es una forma legacy que Logs Explorer y Trace Explorer todavía aceptan. El sample propio de Cloud Run usa el nombre de recurso.
 
-`traceSampled: false` sigue siendo un correlation id válido. La documentación de [LogEntry](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry) es explícita: un `trace` no muestreado sigue siendo útil para unir logs aunque el span nunca se haya almacenado en Cloud Trace. No trates "no hay waterfall en Cloud Trace" como "la petición nunca existió".
+`traceSampled: false` sigue siendo un correlation id válido. La documentación de [LogEntry](https://docs.cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry) es explícita: un `trace` no muestreado sigue siendo útil para unir logs aunque el span nunca se haya almacenado en Cloud Trace. No trates "no hay waterfall en Cloud Trace" como "la petición nunca existió".
 
 ### Un logger conceptual en Node.js
 
@@ -263,7 +266,7 @@ console.log(
     transactionId: fields.transactionId,
     applicationId: fields.applicationId,
     message: fields.message,
-    "logging.googleapis.com/trace": ctx && `projects/${projectId}/traces/${ctx.traceId}`,
+    "logging.googleapis.com/trace": ctx?.traceId,
     "logging.googleapis.com/spanId": ctx?.spanId,
     "logging.googleapis.com/trace_sampled": ctx?.sampled,
   }),
@@ -317,7 +320,9 @@ El id clásico de X-Ray es `1-{8 hex epoch}-{24 hex}`. X-Ray también acepta tra
 
 Eso no es lo mismo que "X-Ray habla `traceparent` en cada hop integrado de AWS." Muchos servicios de AWS todavía propagan `X-Amzn-Trace-Id`. Si instrumentas con OpenTelemetry, a menudo necesitas el propagador de X-Ray para esos hops, incluso si tus propios servicios HTTP ya emiten headers W3C.
 
-El sampling de X-Ray es independiente del de Cloud Run. El default del SDK de X-Ray es conservador: la primera petición cada segundo, luego el cinco por ciento del resto, a menos que cambies las reglas.
+El sampling de X-Ray es independiente del de Cloud Run. La regla por defecto es conservadora: la primera petición cada segundo, luego el cinco por ciento del resto, a menos que cambies las reglas.
+
+No empieces instrumentación nueva con los SDK de X-Ray. Ellos y el daemon de X-Ray entraron en modo mantenimiento el 25 de febrero de 2026 y llegan a fin de soporte el 25 de febrero de 2027. AWS recomienda instrumentación basada en OpenTelemetry que sigue enviando trazas a X-Ray: una razón más para que el contrato portable sea `traceparent`.
 
 **Azure Monitor / Application Insights.** Cada item de telemetría lleva `operation_Id`. Los items que pertenecen a la misma operación distribuida lo comparten, así que puedes agrupar una petición aunque una capa haya perdido datos. La causalidad usa `operation_Id`, `operation_ParentId` y los campos `id` de request/dependency.
 
@@ -363,7 +368,7 @@ transactionId = TX-982341
 flowchart TD
   Gateway[API Gateway] --> Payments[Servicio de Pagos]
   Payments --> Database[(Base de datos)]
-  Database --> Notify[Servicio de Notificaciones]
+  Gateway --> Notify[Servicio de Notificaciones]
   Notify --> Provider[Proveedor Externo]
   Provider --> Timeout[TIMEOUT]
 ```
@@ -391,11 +396,12 @@ Después de eso, añadir otra línea de log es barato. Reconstruir la petición 
 - [Logging and viewing logs in Cloud Run](https://docs.cloud.google.com/run/docs/logging)
 - [Trace context — Cloud Trace](https://docs.cloud.google.com/trace/docs/trace-context)
 - [Structured logging — Cloud Logging](https://docs.cloud.google.com/logging/docs/structured-logging)
-- [Link log entries with traces — Cloud Trace](https://cloud.google.com/trace/docs/trace-log-integration)
-- [LogEntry — Cloud Logging API](https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry)
+- [Link log entries with traces — Cloud Trace](https://docs.cloud.google.com/trace/docs/trace-log-integration)
+- [LogEntry — Cloud Logging API](https://docs.cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry)
 - [AWS X-Ray concepts](https://docs.aws.amazon.com/xray/latest/devguide/xray-concepts.html)
 - [Sending trace data to AWS X-Ray](https://docs.aws.amazon.com/xray/latest/devguide/xray-api-sendingdata.html)
 - [AWS X-Ray segment documents](https://docs.aws.amazon.com/xray/latest/devguide/xray-api-segmentdocuments.html)
+- [X-Ray SDK and daemon end of support timeline](https://docs.aws.amazon.com/xray/latest/devguide/xray-daemon-eos.html)
 - [Application Insights telemetry data model](https://learn.microsoft.com/en-us/azure/azure-monitor/app/data-model-complete)
 - [Application Insights JavaScript SDK configuration — W3C mapping](https://learn.microsoft.com/en-us/azure/azure-monitor/app/javascript-sdk-configuration)
 - [Enable Azure Monitor OpenTelemetry](https://learn.microsoft.com/en-us/azure/azure-monitor/app/opentelemetry-enable)

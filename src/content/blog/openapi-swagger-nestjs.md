@@ -2,9 +2,8 @@
 title: "OpenAPI and Swagger in NestJS: document the contract, not just the UI"
 description: "OpenAPI is the contract. Swagger UI is the viewer. How NestJS builds an OpenAPI document from controllers and DTOs — and how to keep it honest in real teams."
 publishedAt: "2026-04-12T09:00:00Z"
-updatedAt: "2026-04-12T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [NestJS, OpenAPI, API]
-minutes: 16
 prerequisites:
   - NestJS
   - TypeScript
@@ -111,7 +110,7 @@ What it cannot infer from TypeScript alone: class properties (design:type metada
 
 ## Bootstrap `@nestjs/swagger`
 
-Install the package. Current Nest 11 applications use `@nestjs/swagger` 11.x (11.4.6 as of July 2026).
+Install the package. Match its major to Nest: Nest 12 applications use `@nestjs/swagger` 12.x (12.0.2 as of October 2026); Nest 11 projects stay on 11.x. Nest 12 core packages ship as ESM, so read the [migration guide](https://docs.nestjs.com/migration-guide) before bumping both.
 
 ```bash
 npm install --save @nestjs/swagger
@@ -271,7 +270,7 @@ export class CreateUserDto {
 }
 ```
 
-Less duplicated metadata. The trade-offs: only `*.dto.ts` and `*.entity.ts` are analysed by default; runtime validation is still yours; SWC needs `--type-check` or `SwaggerModule.loadPluginMetadata()`; Jest e2e must register the transformer; an explicit `@ApiProperty()` wins for `enumName` and anything the AST cannot see.
+Less duplicated metadata. The trade-offs: only `*.dto.ts` and `*.entity.ts` are analysed by default; runtime validation is still yours; SWC needs `--type-check` or `SwaggerModule.loadPluginMetadata()`; the e2e runner (Jest, or Vitest in new Nest 12 ESM projects) must register the transformer; an explicit `@ApiProperty()` wins for `enumName` and anything the AST cannot see.
 
 Use the plugin when the team will keep the filename convention and the compiler pipeline. Use explicit decorators when the project is small, uses SWC without metadata, or already has a DTO style that does not match `*.dto.ts`. Mixing them without a rule is how half the schemas are empty.
 
@@ -495,6 +494,7 @@ A green Try it out on localhost is not a contract. A document that CI can emit, 
 - NestJS, [Other features](https://docs.nestjs.com/openapi/other-features) — global prefix, global responses, multiple specifications
 - NestJS, [Decorators](https://docs.nestjs.com/openapi/decorators) — official decorator list and apply levels
 - NestJS, [Versioning](https://docs.nestjs.com/techniques/versioning) — URI `/v1` versus document version
+- NestJS, [Migration guide (v11 to v12)](https://docs.nestjs.com/migration-guide) — ESM packages, Node.js requirements, Vitest default
 - OpenAPI Initiative, [OpenAPI Specification](https://spec.openapis.org/oas/latest.html) — current specification (3.2.0, 19 September 2025)
 - OpenAPI Initiative, [Structure of an OpenAPI Description](https://learn.openapis.org/specification/structure.html) — `openapi` versus `info.version`, JSON/YAML
 - Swagger, [What is OpenAPI?](https://swagger.io/docs/specification/v3_0/about/) — OpenAPI as the format, Swagger as the tooling, codegen and UI

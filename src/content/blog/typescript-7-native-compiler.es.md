@@ -2,9 +2,8 @@
 title: "TypeScript 7: qué cambia de verdad el compilador nativo"
 description: "TypeScript 7 porta el compilador y el language service a Go. Mismo lenguaje, herramientas nativas — y qué implica eso para el editor, los builds y CI."
 publishedAt: "2026-08-22T18:00:00Z"
-updatedAt: "2026-08-22T18:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [TypeScript, Tooling, JavaScript]
-minutes: 15
 prerequisites:
   - TypeScript
   - Node.js
@@ -41,23 +40,9 @@ npm install -D typescript
 npx tsc --version
 ```
 
-Go es cómo Microsoft construye ese binario. No es un lenguaje en el que escribas tu app, y no es un runtime que cargue tu proceso de producción. Tu aplicación sigue siendo TypeScript. Sigue comprobándose como TypeScript. Sigue emitiendo JavaScript (o sigues dejando que lo haga un bundler). Go está al otro lado del toolchain:
+Go es cómo Microsoft construye ese binario. No es un lenguaje en el que escribas tu app, y no es un runtime que cargue tu proceso de producción. Tu aplicación sigue siendo TypeScript. Sigue comprobándose como TypeScript. Sigue emitiendo JavaScript (o sigues dejando que lo haga un bundler). Go está al otro lado del toolchain.
 
-```mermaid
-flowchart TD
-    developer["Developer"]
-    source["TypeScript source"]
-    toolchain["TypeScript 7 toolchain"]
-    tsc["Native tsc / Language Server"]
-    output["Diagnostics, .d.ts, JavaScript"]
-
-    developer --> source
-    source --> toolchain
-    toolchain --> tsc
-    tsc --> output
-```
-
-Un diagrama que pone «Go» entre tu código y el output está ligeramente mal. Go es un detalle de compilación **de la herramienta**, igual que C++ es un detalle de compilación de `node`. No ejecutas Go cuando haces type-check de un servicio NestJS.
+Poner «Go» entre tu código y el output es la imagen equivocada. Go es un detalle de compilación **de la herramienta**, igual que C++ es un detalle de compilación de `node`. No ejecutas Go cuando haces type-check de un servicio NestJS.
 
 ```mermaid
 flowchart TD
@@ -122,12 +107,12 @@ La memoria en esos mismos runs de 7.0 es menor, no «la mitad»:
 
 Un post anterior del port nativo (marzo de 2025) decía que la memoria del editor se veía «más o menos la mitad» antes de haberla optimizado. La tabla de 7.0 es el retrato oficial actual: ahorros agregados modestos en un full build, con un trade-off si subes `--checkers` o `--builders`. La memoria sigue importando. Un portátil con el editor, `tsc --watch`, un proceso Next.js o NestJS y Docker no es la caja del benchmark de vscode. Un runner de GitHub Actions que mata `tsc` por OOM no le importa que el mismo check sea más rápido en 64 GB. `--singleThreaded` y un `--checkers` más bajo existen para ese entorno.
 
-La carga del editor es el número que más gente va a sentir primero. En el codebase de VS Code, Microsoft reporta que el tiempo desde abrir el editor hasta ver el primer error como unos **17.5s --> menos de 1.3s** — más de 13× en ese proyecto. También informan que el nuevo servidor de lenguaje falló un **80 % menos** de comandos y se crasheó un **60 % menos** que el servidor de TypeScript 6, según sus datos de telemetría.
+La carga del editor es el número que más gente va a sentir primero. En el codebase de VS Code, Microsoft reporta que el tiempo desde abrir el editor hasta ver el primer error como unos **17.5s → menos de 1.3s** — más de 13× en ese proyecto. También informan que el nuevo servidor de lenguaje falló un **80 % menos** de comandos y se crasheó un **60 % menos** que el servidor de TypeScript 6, según sus datos de telemetría.
 
 Empresas que probaron 7.0 con Microsoft, citadas en el anuncio:
 
-- Slack: alrededor del **40%** del tiempo de merge queue fuera; type-check en CI de unos **7.5 minutos --> 1.25 minutos**. La carga local del editor había estado cerca de ser inutilizable; TypeScript 7 cargaba el mismo árbol en unos segundos.
-- Canva: primer error en el editor de unos **58s --> 4.8s**.
+- Slack: alrededor del **40%** del tiempo de merge queue fuera; type-check en CI de unos **7.5 minutos → 1.25 minutos**. La carga local del editor había estado cerca de ser inutilizable; TypeScript 7 cargaba el mismo árbol en unos segundos.
+- Canva: primer error en el editor de unos **58s → 4.8s**.
 - Vanta: hasta **9×** en uno de sus proyectos más grandes.
 - Microsoft News Services: se eliminaron aproximadamente **400 horas mensuales** de espera de CI.
 
@@ -137,27 +122,9 @@ Son resultados reportados en codebases concretos, no un multiplicador que puedas
 
 La mayor parte de un día TypeScript no es `npx tsc`. Es esperar a lo que hay bajo el cursor.
 
-```mermaid
-flowchart TD
-    file["Archivo grande"]
-    service["Servicio de lenguaje TypeScript"]
-    project["Gráfico del proyecto"]
-    result["Autocompletado / navegación / errores"]
+IntelliSense, auto-import, Go to Definition, Go to Type Definition, Find All References, Rename, Quick Info, Signature Help, quick fixes, call hierarchy — todo eso es el language service respondiendo una pregunta contra el mismo programa que comprueba `tsc`. Si ese programa tarda decenas de segundos en cargar, la primera tecla en un archivo grande llega tarde. Si Find All References recorre un grafo de un millón de líneas en un solo hilo JavaScript, dejas de usarlo y usas grep en su lugar.
 
-    file --> service
-    service --> project
-    project --> result
-```
-
-IntelliSense, auto-import, Go to Definition, Go to Type Definition, Find All References, Rename, Quick Info, Signature Help, quick fixes, call hierarchy — todo eso es el language service respondiendo una pregunta contra el mismo programa que comprueba `tsc`. Si ese programa tarda decenas de segundos en cargar, la primera tecla en un archivo grande llega tarde. Si Find All References recorre un grafo de un millón de líneas en un solo hilo JavaScript, dejas de usarlo y usa grep en su lugar.
-
-Un `tsc` más rápido en CI es un build rojo más corto. Un language service más rápido es un loop más corto en cada edit:
-
-```mermaid
-flowchart TD
-    write["Escribir"] --> check["type-check en el editor"]
-    check --> feedback["Feedback"]
-```
+Un `tsc` más rápido en CI es un build rojo más corto. Un language service más rápido es un loop más corto en cada edición.
 
 Por eso Microsoft dedicó tanto del port al language service como al CLI, y por eso se pasaron a LSP. El servidor nuevo puede usar varios hilos para peticiones concurrentes. En VS Code, la extensión de TypeScript 7 pasa a ser el default al instalarla; puedes desactivarla desde la command palette si un plugin o un lenguaje embebido todavía necesita TypeScript 6. Visual Studio sigue al workspace. En las semanas posteriores a 7.0, Microsoft dijo que TypeScript 7 se incluiría como parte del propio VS Code.
 
@@ -169,7 +136,7 @@ Los proyectos que más pagaron por TypeScript 6 son los que tienen muchos archiv
 
 Qué puede salir más barato:
 
-- **Type-check.** `tsc --noEmit` o la task equivalente de Nx/Turborepo suele ser el nodo lento de CI. El 7.5 --> 1.25 minutos de Slack es ese nodo, no «todo el deploy».
+- **Type-check.** `tsc --noEmit` o la task equivalente de Nx/Turborepo suele ser el nodo lento de CI. El 7.5 → 1.25 minutos de Slack es ese nodo, no «todo el deploy».
 - **`--build` y project references.** TypeScript 7 puede comprobar dentro de un proyecto en paralelo y puede construir **más de un proyecto referenciado a la vez**. `--builders` fija cuántos de esos builds corren juntos. Se multiplica con `--checkers`: `--checkers 4 --builders 4` puede significar hasta 16 checkers. Microsoft avisa de que eso puede ser excesivo. El grafo de dependencias sigue serializando lo que tiene que serializar, salvo que uses `--isolatedDeclarations` y un emit de declarations aparte.
 - **`--incremental`.** Rechequear un edit pequeño en un repo grande es el caso de cada día. El path incremental de 7.0 es una reimplementación, no la caché JS antigua con un binario nuevo.
 - **`--watch`.** El file watching se reconstruyó sobre un port de Go del watcher de Parcel, la misma familia de watcher que VS Code ya usaba. Microsoft reporta menos uso de recursos que el watcher de TypeScript 6, sobre todo cuando `node_modules` está en el árbol.
@@ -231,7 +198,7 @@ La promesa de compatibilidad de Microsoft es concreta: TypeScript que compila li
 }
 ```
 
-**La API antigua del compilador no está en 7.0.** Microsoft espera una API **nueva** en 7.1. Hasta entonces, `typescript-eslint` y cualquier cosa que haga `import` de `typescript` debería quedarse en TypeScript 6 vía [`@typescript/typescript6`](https://www.npmjs.com/package/@typescript/typescript6) (`tsc6` más la API 6.0). El patrón de alias npm documentado:
+**La API antigua del compilador no está en 7.0.** Microsoft espera una API **nueva** (y distinta) en 7.1, con la cadencia habitual de tres a cuatro meses después de 7.0. A octubre de 2026, 7.0.2 es `latest` en npm y 7.1 solo existe como nightlies (`typescript@next`); revisa el [blog de TypeScript](https://devblogs.microsoft.com/typescript/) para la beta de 7.1 antes de planificar en torno a ella. Hasta entonces, `typescript-eslint` y cualquier cosa que haga `import` de `typescript` debería quedarse en TypeScript 6 vía [`@typescript/typescript6`](https://www.npmjs.com/package/@typescript/typescript6) (`tsc6` más la API 6.0). El patrón de alias npm documentado:
 
 ```json
 {
@@ -250,7 +217,7 @@ La promesa de compatibilidad de Microsoft es concreta: TypeScript que compila li
 
 **La inferencia de template literales ahora se divide por puntos de código Unicode**, no según las unidades de código UTF-16. `HeadTail<"😀abc">` pasa a ser `["😀", "abc"]`, no en un par sustituto. Las utilidades que modelaban la longitud UTF-16 a propósito cambiarán.
 
-Nada de eso es «TypeScript 7 rompió `interface`». Es el puente 6 --> 7, más un ecosistema que durante un tiempo sigue teniendo dos compiladores.
+Nada de eso es «TypeScript 7 rompió `interface`». Es el puente 6 → 7, más un ecosistema que durante un tiempo sigue teniendo dos compiladores.
 
 ## Qué pasó con `tsc`
 
@@ -263,7 +230,7 @@ Nada de eso es «TypeScript 7 rompió `interface`». Es el puente 6 --> 7, más 
 | TypeScript 7.0 estable                  | `typescript` (`7.0.x`)            | `tsc` (nativo)   |
 | Nightlies después de 7.0                | `typescript@next`                 | `tsc` (nativo)   |
 
-`tsgo` era un nombre de preview para poder sentarlo al lado del `tsc` de TypeScript 6. No es el comando estable. Ryan Cavanaugh ha dicho que el nombre `tsgo` está, en la práctica, retirado, y que el codebase nativo vuelve a `microsoft/TypeScript`. No escribas un runbook alrededor de `@typescript/native-preview` en agosto de 2026.
+`tsgo` era un nombre de preview para poder sentarlo al lado del `tsc` de TypeScript 6. No es el comando estable. Ryan Cavanaugh ha dicho que el nombre `tsgo` está, en la práctica, retirado, y que el codebase nativo vuelve a `microsoft/TypeScript`. No escribas un runbook alrededor de `@typescript/native-preview` ahora que 7.0 es estable.
 
 | Aspecto              | TypeScript 6                                          | TypeScript 7                                                 |
 | -------------------- | ----------------------------------------------------- | ------------------------------------------------------------ |
@@ -294,29 +261,6 @@ No por defecto. Hazle al proyecto estas preguntas.
 **Migrar CI y a todo el equipo** significa pinear `typescript@7`, decidir si todavía necesitáis el alias `@typescript/typescript6`, actualizar `tsconfig` a los defaults de 6.0 y comprobar que cada paquete de un monorepo está de acuerdo. Microsoft ha estado corriendo 7.0 en repos grandes internos y externos y lo da por listo para checking en línea de comandos. «Listo para producción» no es «cada plugin en `node_modules` ya habla 7.1».
 
 Si el problema es el editor y no embebes Vue en ese workspace, prueba primero el language server. Si el problema es el type-check de CI y eslint todavía necesita la API 6.0, usa el alias y deja que `tsc` sea 7. Si ninguno de los dos es un problema, TypeScript 6 sigue siendo una trampilla soportada. No hay premio por actualizar la semana del release.
-
-## Para qué sirve esto
-
-El retrato útil no es «Microsoft eligió Go». Es el loop en el que estás cada día:
-
-```mermaid
-flowchart TD
-    write["Escribir código"] --> check["Type-check"]
-    check --> feedback["Feedback"]
-```
-
-Un compilador nativo acorta ese loop en el editor, en `--watch` y en CI. Los repos grandes se llevan más de la ganancia porque hay más trabajo que paralelizar y más memoria que dejar de tirar. El lenguaje puede seguir creciendo — más archivos, tipos más pesados, más paquetes, más gente — sin que la herramienta que entiende el lenguaje se caiga primero.
-
-TypeScript no necesitaba una sintaxis nueva para dar ese salto. Necesitaba que el programa que implementa TypeScript escale con el hardware y con los repos que la gente ya tiene.
-
-## Lo que TypeScript 7 no significa
-
-- TypeScript no es Go. Sigues escribiendo TypeScript.
-- No necesitas aprender Go para usar TypeScript 7.
-- Tu aplicación no corre sobre Go.
-- Node.js, Bun, Deno y JavaScript siguen siendo los runtimes.
-- No todo proyecto va a ver «10×». La propia tabla de Microsoft va de unos 7.7× a 11.9× en full builds con el número default de checkers, en repos open source concretos, en una máquina.
-- No toda herramienta es compatible. El hueco de API de 7.0 es real. Planifica dos compiladores si tus plugins del editor o eslint todavía importan `typescript`.
 
 ## La conclusión
 

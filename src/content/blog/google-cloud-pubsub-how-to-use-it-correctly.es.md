@@ -4,7 +4,13 @@ description: "Pub/Sub no es una cola y no es un reemplazo de REST. Cómo diseña
 publishedAt: "2026-08-14T09:00:00Z"
 updatedAt: "2026-08-14T09:00:00Z"
 tags: [GCP, Pub/Sub, Architecture]
-minutes: 19
+prerequisites:
+  - HTTP
+  - Mensajería asíncrona
+related:
+  - idempotency-in-apis
+  - trace-id-is-not-transaction-id
+  - event-sourcing-if-you-never-stored-current-state
 ---
 
 Tu servicio de pagos no debería esperar a que las notificaciones, los análisis, las auditorías y la facturación terminen de procesar un evento.
@@ -370,8 +376,6 @@ Alerta sobre oldest unacked age y conteo de DLT antes de alertar sobre QPS de pu
 ## Pub/Sub no está ahí para hacer que el diagrama parezca distribuido
 
 Pub/Sub existe para resolver problemas concretos: comunicación asíncrona, desacoplamiento, y distribución de eventos. No existe para decorar un monolito con topics.
-
-Cloud Pub/Sub se apoya en un fabric interno de mensajería que productos como Ads, Search y Gmail llevan usando más de una década. Los números de throughput del overview arquitectónico de Google hablan de ese fabric, no de que la UI de Gmail sea un tutorial de Pub/Sub. Lo que se transfiere a cualquier escala es el trabajo: los productores no deberían bloquear en el conjunto completo de consumidores, y una petición de usuario no debería esperar trabajo que no forma parte de la respuesta.
 
 ```mermaid
 flowchart TD

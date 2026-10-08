@@ -2,9 +2,8 @@
 title: "CORS, rate limiting y Helmet en NestJS: tres capas, no una estrategia de seguridad"
 description: "Qué protegen realmente CORS, @nestjs/throttler y Helmet en una API NestJS — y por qué ninguno de ellos sustituye a la autenticación, la autorización ni la validación de entrada."
 publishedAt: "2026-04-14T09:00:00Z"
-updatedAt: "2026-04-14T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [NestJS, API, Security]
-minutes: 23
 prerequisites:
   - NestJS
   - TypeScript
@@ -432,9 +431,9 @@ Esta es la parte que los tres paquetes npm no pueden decir por ti. El stack del 
 
 Si solo recuerdas una fila: **CORS no es una lista de control de acceso para internet.** La autenticación es el [capítulo de autenticación de Nest](https://docs.nestjs.com/security/authentication). La autorización son [guards y roles](https://docs.nestjs.com/security/authorization) — un JWT válido en `GET /orders/someone-elses-id` es un IDOR, no un bug de CORS. La validación es [`ValidationPipe`](https://docs.nestjs.com/techniques/validation).
 
-En producción ese stack está detrás de un CDN/WAF y un load balancer. Redis guarda el contador compartido cuando hay más de una réplica. Cada caja falla de forma cerrada para **su** amenaza. El WAF no notará que `role` es escribible en `PATCH /users/me`. Redis no notará que Swagger UI es público. Helmet no notará que `/auth/login` no tiene backoff.
+En producción ese stack está detrás de un CDN/WAF y un load balancer. Redis guarda el contador compartido cuando hay más de una réplica. Cada caja falla de forma cerrada para **su** amenaza. El WAF no notará que `role` es escribible en `PATCH /users/me`. Redis no notará que Swagger UI es público. Helmet no notará que `/auth/login` no tiene backoff. Los atacantes no usan tu frontend; usan tu contrato HTTP. Documenta ese contrato con honestidad — ver [OpenAPI y Swagger en NestJS](/blog/openapi-swagger-nestjs/) — y autentica al caller.
 
-## Configuración de producción recomendada
+## Configuración de producción y criterio de salida
 
 Enlaza las piezas que ya se mostraron. Orígenes, conteos de saltos y límites vienen del entorno. Los secretos no aparecen en el código fuente.
 
@@ -449,31 +448,17 @@ THROTTLE_LIMIT=60
 # REDIS_URL=redis://redis:6379
 ```
 
-Perillas de producción — no una segunda copia de `main.ts` / `app.module.ts`:
+Perillas de producción y criterio de salida — no una segunda copia de `main.ts` / `app.module.ts`:
 
 - Helmet, después CORS, en `bootstrap()`, usando el callback de allowlist y las opciones de Helmet ya mostradas. Configúralos con `CORS_ORIGINS`, `CORS_CREDENTIALS` y `NODE_ENV`.
 - `trust proxy` desde `TRUST_PROXY_HOPS` (el conteo de saltos que mediste). Enlaza `ThrottlerBehindProxyGuard` cuando Fastify o saltos extra necesiten `req.ips`.
 - `ThrottlerModule.forRootAsync` con `THROTTLE_TTL_MS` / `THROTTLE_LIMIT`, `APP_GUARD`, y storage Redis cuando hay más de una réplica.
 - `@Throttle` en login (5/min) y password reset (3/min); `@SkipThrottle` en las sondas de health.
-- `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` global. La autenticación y la autorización en `/orders` y `/profile` siguen sin ser el trabajo de Helmet.
+- `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` global. La autenticación y la autorización a nivel de objeto en `/orders` y `/profile` siguen sin ser el trabajo de Helmet.
+- El CORP de Helmet no bloquea la SPA; el CSP se revisa por separado para respuestas JSON y `/docs`.
+- `429` y orígenes rechazados se loguean sin secretos (ver [Observability](#observability)); HTTPS en todas partes antes de HSTS.
 
 Desarrollo puede usar un `THROTTLE_LIMIT` más relajado, `http://localhost:5173` en `CORS_ORIGINS`, y ningún `TRUST_PROXY_HOPS`. No debería usar `origin: true`, y no debería deshabilitar el guard «para moverse más rápido» en el mismo camino de código que vas a desplegar.
-
-## Errores comunes
-
-**CORS: `origin: '*'` sin razón.** Está bien para una API pública, sin credenciales, mayormente de lectura. Combinado con cookies o un origen reflejado (`origin: true`) le entrega a cualquier sitio web la sesión del usuario. Una allowlist vacía que después pasas por alto con `true` en producción es el mismo bug con pasos extra.
-
-**Rate limiting: un límite para todas las rutas.** `/products` y `/auth/login` no cuestan lo mismo y no se abusan de la misma forma. Un global de 60/min o bloquea una vitrina o deja login abierto de par en par.
-
-**Proxy: ignorar la IP real del cliente — o confiar en el cliente.** Sin `trust proxy` significa que limitas el load balancer. `trust proxy: true` significa que el cliente elige su propio tracker. Ambos fallan. El conteo de saltos es un hecho de infraestructura.
-
-**Headers de seguridad: un CSP default en una app que no has inventariado.** Swagger UI, GraphQL Playground, y cualquier script inline quedarán en blanco. También un iframe legítimo. Lee el HTML que sirves, después escribe la política. No pegues la lista del CDN de Apollo en una API REST.
-
-**Seguridad: tratar CORS como un firewall.** Los atacantes no usan tu frontend. Usan tu contrato HTTP. Documenta ese contrato con honestidad — ver [OpenAPI y Swagger en NestJS](/blog/openapi-swagger-nestjs/) — y autentica al caller.
-
-**Distribución: contadores en memoria detrás de un autoescalador.** Cada réplica es un presupuesto fresco. El límite que configuraste no es el límite que tienes.
-
-**Configuración: orígenes, conteos de saltos, y límites en el código fuente.** Cambian por entorno. Los secretos nunca pertenecen junto a ellos. `CORS_ORIGINS=*` en un `.env.production` que copiaste de `.env.example` sigue siendo un wildcard.
 
 ## Una API first-party, ruta por ruta
 
@@ -510,16 +495,6 @@ La misma forma funciona para un rechazo CORS que manejes en el callback de origi
 Esas líneas te dicen si `/auth/login` está recibiendo credential stuffing, si un deploy configuró mal `TRUST_PROXY_HOPS` (todos los 429 comparten una IP de CDN, o ninguno lo hace), si un límite es demasiado estricto (usuarios reales, muchas rutas, un NAT de oficina), y si una réplica está aplicando un presupuesto distinto al de sus pares. Cómo poner `requestId` en cada línea — y cómo eso difiere de un `transactionId` de negocio — está en [Logging estructurado y transaction IDs en NestJS](/blog/structured-logging-transaction-id-nestjs/).
 
 Un exception filter global que ya formatea errores de Nest puede loguear cuando `status === 429` y devolver el mismo body estable que emite el throttler. No añadas un segundo mensaje ruidoso que filtre los internals de `ttl` al cliente.
-
-## Checklist de seguridad
-
-Criterio de salida — la sección de errores es el _por qué_; esto es el _antes de desplegar_:
-
-- Allowlist CORS desde el entorno; `credentials` solo con un origen concreto
-- `ThrottlerGuard` enlazado; login y password reset más estrictos; sondas saltadas; Redis cuando hay réplicas; conteo de saltos de `trust proxy` medido
-- Helmet antes de otros middleware; CORP no bloquea la SPA; CSP revisado para JSON vs `/docs`
-- Autenticación, autorización a nivel de objeto y `ValidationPipe` en las rutas que los necesitan
-- `429` y orígenes inesperados logueados sin secretos; solo HTTPS; HSTS solo entonces
 
 ## Tres capas, una estrategia
 

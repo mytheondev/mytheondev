@@ -2,9 +2,8 @@
 title: "Elegir un package manager de Node.js: en qué se diferencian de verdad npm, Yarn y pnpm"
 description: "La diferencia está en el modelo de dependencias, no en el CLI. Cómo el store de pnpm y su node_modules aislado se comparan con npm y Yarn moderno — y cuándo encaja mejor cada uno."
 publishedAt: "2026-08-13T09:00:00Z"
-updatedAt: "2026-08-13T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [JavaScript, Tooling, Node.js]
-minutes: 16
 prerequisites:
   - Node.js
   - package.json
@@ -20,7 +19,7 @@ npm, pnpm y Yarn moderno hablan con el mismo registry y todos producen un lockfi
 
 > pnpm es especialmente atractivo cuando necesitas eficiencia de disco, aislamiento de dependencias, monorepos e instalaciones reproducibles. npm sigue siendo un excelente default porque viene con Node.js. Yarn moderno es un diseño distinto: Plug'n'Play y Zero-Installs, no un npm más rápido.
 
-Este artículo está escrito contra **pnpm 11** (estable actual) y trata **pnpm 12** (reescritura en Rust, RC en el momento de escribir) como el mismo producto. Yarn significa **Yarn Berry** (2+), no Yarn Classic, salvo que se nombre Classic.
+Este artículo está escrito contra **pnpm 12**, la línea estable actual: una reescritura en Rust distribuida como ejecutable nativo que conserva los comandos, ajustes y formato de lockfile de pnpm 11. Durante la transición, el tag `latest` de npm todavía apunta a pnpm 11; todo lo que sigue aplica a ambos salvo que se nombre una versión. Yarn significa **Yarn Berry** (2+), no Yarn Classic, salvo que se nombre Classic.
 
 ## El problema es la gestión de dependencias, no el CLI
 
@@ -122,7 +121,7 @@ No caza todos los casos — una `devDependency` que falta en producción, o un p
 
 ## Monorepos y workspaces
 
-Un workspace es un repo, muchos paquetes, un instalador. pnpm requiere un `pnpm-workspace.yaml` en la raíz. Ese archivo es también donde pnpm 11 espera la mayoría de ajustes — `.npmrc` queda para auth y registry, no para `hoistPattern` o `nodeLinker`.
+Un workspace es un repo, muchos paquetes, un instalador. pnpm requiere un `pnpm-workspace.yaml` en la raíz. Ese archivo es también donde pnpm 11 y 12 esperan la mayoría de ajustes — `.npmrc` queda para auth y registry, no para `hoistPattern` o `nodeLinker`. pnpm 12 reporta las claves desconocidas en vez de ignorarlas (error si la versión de pnpm está fijada), así que un typo en un ajuste ya no falla en silencio.
 
 ```yaml
 packages:
@@ -151,7 +150,7 @@ flowchart TD
 
 ## CI/CD, Docker y reproducibilidad
 
-Fija el package manager que el repo ejecuta de verdad (`packageManager` en `package.json`, instalado con `pnpm/setup` o el binario standalone — no un global aleatorio). En CI, usa `pnpm install --frozen-lockfile`; pnpm también activa el modo frozen automáticamente cuando detecta CI, y desde pnpm 11 el job falla si el lockfile lo escribió un major más nuevo. En Docker, `pnpm fetch` lee el lockfile (no `package.json`) para que editar un script no invalide la capa de dependencias; después `pnpm install --offline` solo enlaza. Cachea el store indexado por `pnpm-lock.yaml` si has medido una ganancia. `pnpm deploy` copia una app más un `node_modules` aislado a un directorio portable para la imagen de runtime.
+Fija el package manager que el repo ejecuta de verdad (`packageManager` en `package.json`, instalado con `pnpm/setup` o el binario standalone — no un global aleatorio). En CI, usa `pnpm install --frozen-lockfile` (pnpm 12 eliminó `--frozen-lockfile false`; usa `--no-frozen-lockfile`); pnpm también activa el modo frozen automáticamente cuando detecta CI, y desde pnpm 11 el job falla si el lockfile lo escribió un major más nuevo. En Docker, `pnpm fetch` lee el lockfile (no `package.json`) para que editar un script no invalide la capa de dependencias; después `pnpm install --offline` solo enlaza. Cachea el store indexado por `pnpm-lock.yaml` si has medido una ganancia. `pnpm deploy` copia una app más un `node_modules` aislado a un directorio portable para la imagen de runtime.
 
 ## Benchmarks sin eslóganes
 
@@ -225,7 +224,7 @@ El mejor package manager es el que encaja con el problema que estás resolviendo
 
 ## Migrar de npm (o Yarn) a pnpm
 
-Instala pnpm primero (`npx get-pnpm`, o npm en Windows si Defender bloquea el binario standalone). pnpm 11 necesita Node.js 22+ como paquete JavaScript; el binario standalone puede instalar Node con `pnpm runtime set node lts -g`.
+Instala pnpm primero: `npx get-pnpm` (el instalador necesita Node.js 22.13+; pnpm 12 es un binario nativo y después no necesita Node.js), el script standalone, o `pnpm self-update latest-12` desde un pnpm 11. pnpm todavía puede instalarte Node con `pnpm runtime set node lts -g`.
 
 ```bash
 npx get-pnpm
@@ -236,14 +235,14 @@ git rm package-lock.json   # o yarn.lock
 
 Si es un monorepo, escribe `pnpm-workspace.yaml` **antes** de importar — `pnpm import` no inventará membresía. Revisa el diff del lockfile; no será idéntico byte a byte. Mueve los ajustes de pnpm fuera de `.npmrc` excepto auth y registry.
 
-Fija la versión con `"packageManager": "pnpm@11.20.0"`. Corepack lee ese campo (`corepack enable` y después `corepack use pnpm@11.20.0` en las líneas de Node que todavía lo traen). pnpm 11 también lee `packageManager` / `devEngines.packageManager` y puede descargar si no coincide. El campo es la parte portable; Corepack, `pnpm/setup`, `mise`, Volta o una instalación standalone lo honran. `pnpm env` está deprecated — usa `pnpm runtime set node 22 -g`.
+Fija la versión con `"packageManager": "pnpm@12.10.1"` (o la que ejecutes de verdad). Corepack lee ese campo (`corepack enable` y después `corepack use pnpm@12.10.1` en las líneas de Node que todavía lo traen). pnpm también lee `packageManager` / `devEngines.packageManager` y puede descargar si no coincide. El campo es la parte portable; Corepack, `pnpm/setup`, `mise`, Volta o una instalación standalone lo honran. `pnpm env` está deprecated — usa `pnpm runtime set node 22 -g`.
 
 Apunta CI y Docker al binario fijado, `pnpm install --frozen-lockfile`, y `pnpm fetch` más un offline install (o `deploy` para una app).
 
 ### Checklist de migración
 
-- Instala pnpm 11 (Node 22+, o el binario standalone).
-- Pon `"packageManager": "pnpm@11.20.0"` a la versión que ejecutas realmente.
+- Instala pnpm 12 (`npx get-pnpm`, el script standalone o `pnpm self-update latest-12`).
+- Pon `"packageManager"` (por ejemplo `pnpm@12.10.1`) en la versión que ejecutas realmente.
 - Añade `pnpm-workspace.yaml` si es un monorepo; `pnpm import` si existe un lockfile viejo.
 - `pnpm install`; arregla phantom imports; borra el lockfile viejo; commitea `pnpm-lock.yaml`.
 - Apunta las deps del workspace a `workspace:` (y catálogos si los quieres).
@@ -273,7 +272,8 @@ Elige el modelo que encaja con el fallo que realmente estás teniendo. El binari
 - pnpm, [pnpm import](https://pnpm.io/cli/import) — importar lockfile desde npm y Yarn
 - pnpm, [pnpm runtime](https://pnpm.io/cli/runtime) — gestión de versiones de Node; `pnpm env` deprecated
 - pnpm, [pnx / dlx](https://pnpm.io/cli/pnx) — ejecución de paquetes de un solo uso
-- pnpm, [Installation](https://pnpm.io/installation) — script standalone, `npx get-pnpm`, pnpm 11 versus 12 RC, compatibilidad con Node
+- pnpm, [Installation](https://pnpm.io/installation) — script standalone, `npx get-pnpm`, compatibilidad con Node de pnpm 11 y 12
+- pnpm, [pnpm 12.0](https://pnpm.io/blog/releases/12.0) — reescritura en Rust, breaking changes, tag `latest-12`
 - pnpm, [Continuous Integration](https://pnpm.io/continuous-integration) — install standalone, `pnpm/setup`, caveats del caché de store, frozen lockfile en CI
 - pnpm, [Benchmarks](https://pnpm.io/benchmarks) — fixtures oficiales; matriz de caché / lockfile / `node_modules`
 - pnpm, [Other settings](https://pnpm.io/settings/other) — `sideEffectsCache`, `cacheDir`

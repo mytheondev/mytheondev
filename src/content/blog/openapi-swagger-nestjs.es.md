@@ -2,9 +2,8 @@
 title: "OpenAPI y Swagger en NestJS: documenta el contrato, no solo la UI"
 description: "OpenAPI es el contrato. Swagger UI es el visor. Cómo NestJS construye un documento OpenAPI desde controladores y DTOs — y cómo mantenerlo honesto en equipos reales."
 publishedAt: "2026-04-12T09:00:00Z"
-updatedAt: "2026-04-12T09:00:00Z"
+updatedAt: "2026-10-07T09:00:00Z"
 tags: [NestJS, OpenAPI, API]
-minutes: 17
 prerequisites:
   - NestJS
   - TypeScript
@@ -111,7 +110,7 @@ Lo que no puede inferir solo desde TypeScript: propiedades de la clase (la metad
 
 ## Bootstrap de `@nestjs/swagger`
 
-Instala el paquete. Las aplicaciones actuales de Nest 11 usan `@nestjs/swagger` 11.x (11.4.6 a julio de 2026).
+Instala el paquete. Alinea su major con Nest: las aplicaciones de Nest 12 usan `@nestjs/swagger` 12.x (12.0.2 a octubre de 2026); los proyectos de Nest 11 se quedan en 11.x. Los paquetes core de Nest 12 se publican como ESM, así que lee la [guía de migración](https://docs.nestjs.com/migration-guide) antes de subir ambos.
 
 ```bash
 npm install --save @nestjs/swagger
@@ -271,7 +270,7 @@ export class CreateUserDto {
 }
 ```
 
-Menos metadata duplicada. Las contrapartidas: por defecto solo se analizan `*.dto.ts` y `*.entity.ts`; la validación runtime sigue siendo tuya; SWC necesita `--type-check` o `SwaggerModule.loadPluginMetadata()`; Jest e2e debe registrar el transformer; un `@ApiProperty()` explícito gana para `enumName` y cualquier cosa que el AST no pueda ver.
+Menos metadata duplicada. Las contrapartidas: por defecto solo se analizan `*.dto.ts` y `*.entity.ts`; la validación runtime sigue siendo tuya; SWC necesita `--type-check` o `SwaggerModule.loadPluginMetadata()`; el runner e2e (Jest, o Vitest en los proyectos ESM nuevos de Nest 12) debe registrar el transformer; un `@ApiProperty()` explícito gana para `enumName` y cualquier cosa que el AST no pueda ver.
 
 Usa el plugin cuando el equipo mantendrá la convención de nombres de archivo y el pipeline de compilación. Usa decoradores explícitos cuando el proyecto es pequeño, usa SWC sin metadata, o ya tiene un estilo de DTO que no coincide con `*.dto.ts`. Mezclarlos sin una regla es cómo la mitad de los schemas están vacíos.
 
@@ -494,6 +493,7 @@ Un Try it out verde en localhost no es un contrato. Un documento que CI puede em
 - NestJS, [Mapped types](https://docs.nestjs.com/openapi/mapped-types) — `PartialType`, `PickType`, `OmitType` from `@nestjs/swagger`
 - NestJS, [Other features](https://docs.nestjs.com/openapi/other-features) — global prefix, global responses, multiple specifications
 - NestJS, [Decorators](https://docs.nestjs.com/openapi/decorators) — official decorator list and apply levels
+- NestJS, [Migration guide (v11 to v12)](https://docs.nestjs.com/migration-guide) — paquetes ESM, requisitos de Node.js, Vitest por defecto
 - NestJS, [Versioning](https://docs.nestjs.com/techniques/versioning) — URI `/v1` versus document version
 - OpenAPI Initiative, [OpenAPI Specification](https://spec.openapis.org/oas/latest.html) — current specification (3.2.0, 19 September 2025)
 - OpenAPI Initiative, [Structure of an OpenAPI Description](https://learn.openapis.org/specification/structure.html) — `openapi` versus `info.version`, JSON/YAML

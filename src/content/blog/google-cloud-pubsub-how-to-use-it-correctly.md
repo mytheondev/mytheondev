@@ -4,7 +4,13 @@ description: "Pub/Sub is not a queue and not a REST replacement. How to design t
 publishedAt: "2026-08-14T09:00:00Z"
 updatedAt: "2026-08-14T09:00:00Z"
 tags: [GCP, Pub/Sub, Architecture]
-minutes: 17
+prerequisites:
+  - HTTP
+  - Asynchronous messaging
+related:
+  - idempotency-in-apis
+  - trace-id-is-not-transaction-id
+  - event-sourcing-if-you-never-stored-current-state
 ---
 
 Your payment service should not wait for notifications, analytics, audit, and billing to finish processing an event.
@@ -370,8 +376,6 @@ Alert on oldest unacked age and DLT count before you alert on raw publish QPS. P
 ## Pub/Sub is not there to make the diagram look distributed
 
 Pub/Sub exists to solve concrete problems: asynchronous communication, decoupling, and distribution of events. It does not exist to decorate a monolith with topics.
-
-Cloud Pub/Sub sits on a core Google messaging fabric that products including Ads, Search, and Gmail have used for over a decade. The throughput numbers in Google’s architecture overview are about that fabric, not a claim that Gmail’s UI is a Pub/Sub tutorial. What transfers at any scale is the job: producers should not block on the full consumer set, and a user request should not wait on work that is not part of the response.
 
 ```mermaid
 flowchart TD
